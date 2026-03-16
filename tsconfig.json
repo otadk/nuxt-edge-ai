@@ -1,8 +1,17 @@
 {
   "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
   },
+  "include": [
+    ".nuxt/**/*.d.ts",
+    "src/**/*.ts",
+    "src/**/*.mts",
+    "test/**/*.ts"
+  ],
   "exclude": [
     "dist",
     "node_modules",
