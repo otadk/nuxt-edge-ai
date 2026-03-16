@@ -83,6 +83,7 @@ const state: RuntimeState = {
 }
 
 const require = createRequire(resolve(process.cwd(), 'package.json'))
+const vendoredModuleExtensions = ['.js', '.mjs'] as const
 
 function contentTypeForExtension(extension: string) {
   switch (extension) {
@@ -95,6 +96,57 @@ function contentTypeForExtension(extension: string) {
     default:
       return 'application/octet-stream'
   }
+}
+
+function isModuleResolutionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  const hasResolutionCode = 'code' in error
+    && (error.code === 'ERR_MODULE_NOT_FOUND' || error.code === 'ENOENT')
+
+  return hasResolutionCode
+    || error.message.includes('Cannot find module')
+    || error.message.includes('Could not resolve')
+}
+
+async function findVendoredFilePath(candidateDir: string, basename: string) {
+  for (const extension of vendoredModuleExtensions) {
+    const candidatePath = join(candidateDir, `${basename}${extension}`)
+    try {
+      await access(candidatePath)
+      return candidatePath
+    }
+    catch {
+      // Try the next extension.
+    }
+  }
+
+  return undefined
+}
+
+async function importVendoredModule<T>(relativeModulePath: string) {
+  let lastResolutionError: unknown
+
+  for (const extension of vendoredModuleExtensions) {
+    try {
+      const moduleUrl = new URL(`${relativeModulePath}${extension}`, import.meta.url)
+      return await import(moduleUrl.href) as T
+    }
+    catch (error) {
+      if (isModuleResolutionError(error)) {
+        lastResolutionError = error
+        continue
+      }
+
+      throw error
+    }
+  }
+
+  throw lastResolutionError instanceof Error
+    ? lastResolutionError
+    : new Error(`Unable to resolve vendored module "${relativeModulePath}"`)
 }
 
 function installFileFetchShim() {
@@ -144,12 +196,9 @@ async function resolveVendoredOnnxRuntimeBaseUrl() {
   candidates.add(resolve(process.cwd(), 'src', 'runtime', 'server', 'vendor', 'onnxruntime'))
 
   for (const candidate of candidates) {
-    try {
-      await access(join(candidate, 'ort-wasm-simd-threaded.mjs'))
+    const runtimeModule = await findVendoredFilePath(candidate, 'ort-wasm-simd-threaded')
+    if (runtimeModule) {
       return `${pathToFileURL(candidate).href}/`
-    }
-    catch {
-      // Keep scanning fallback locations.
     }
   }
 
@@ -165,14 +214,14 @@ async function loadTransformersRuntime() {
     state.initPromise = (async () => {
       installFileFetchShim()
 
-      const ortModule = await import('../vendor/onnxruntime/ort.wasm.min.mjs')
+      const ortModule = await importVendoredModule<{ InferenceSession?: unknown, default?: unknown }>('../vendor/onnxruntime/ort.wasm.min')
       const ort = ((ortModule as { InferenceSession?: unknown }).InferenceSession
         ? ortModule
         : (ortModule as { default?: unknown }).default) ?? ortModule
       const globalWithOrt = globalThis as typeof globalThis & Record<symbol, unknown>
       globalWithOrt[Symbol.for('onnxruntime')] = ort
 
-      const transformers = await import('../vendor/huggingface/transformers.web.mjs') as TransformersRuntimeModule
+      const transformers = await importVendoredModule<TransformersRuntimeModule>('../vendor/huggingface/transformers.web')
       state.runtime = transformers
     })().catch((error) => {
       state.lastError = error instanceof Error ? error.message : String(error)
