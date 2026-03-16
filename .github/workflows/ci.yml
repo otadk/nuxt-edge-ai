@@ -27,6 +27,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Playground prepare
+        run: npm run dev:prepare
+
       - name: Type check
         run: npm run test:types
 
