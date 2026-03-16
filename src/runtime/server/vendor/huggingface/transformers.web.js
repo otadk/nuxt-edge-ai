@@ -1,5 +1,5 @@
-import * as __WEBPACK_EXTERNAL_MODULE_onnxruntime_common_82b39e9f__ from "../onnxruntime/onnxruntime-common.mjs";
-import * as __WEBPACK_EXTERNAL_MODULE_onnxruntime_web_74d14b94__ from "../onnxruntime/onnxruntime-web.mjs";
+import * as __WEBPACK_EXTERNAL_MODULE_onnxruntime_common_82b39e9f__ from "../onnxruntime/onnxruntime-common.js";
+import * as __WEBPACK_EXTERNAL_MODULE_onnxruntime_web_74d14b94__ from "../onnxruntime/onnxruntime-web.js";
 /******/ var __webpack_modules__ = ({
 
 /***/ "onnxruntime-common":

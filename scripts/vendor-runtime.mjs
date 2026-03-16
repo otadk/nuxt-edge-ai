@@ -20,12 +20,12 @@ const destinations = {
   hfDir: join(vendorRoot, 'huggingface'),
   ortDir: join(vendorRoot, 'onnxruntime'),
   licenseDir: join(vendorRoot, 'licenses'),
-  transformers: join(vendorRoot, 'huggingface', 'transformers.web.mjs'),
-  ortModule: join(vendorRoot, 'onnxruntime', 'ort.wasm.min.mjs'),
-  ortThreadedModule: join(vendorRoot, 'onnxruntime', 'ort-wasm-simd-threaded.mjs'),
+  transformers: join(vendorRoot, 'huggingface', 'transformers.web.js'),
+  ortModule: join(vendorRoot, 'onnxruntime', 'ort.wasm.min.js'),
+  ortThreadedModule: join(vendorRoot, 'onnxruntime', 'ort-wasm-simd-threaded.js'),
   ortWasm: join(vendorRoot, 'onnxruntime', 'ort-wasm-simd-threaded.wasm'),
-  ortCommonWrapper: join(vendorRoot, 'onnxruntime', 'onnxruntime-common.mjs'),
-  ortWebWrapper: join(vendorRoot, 'onnxruntime', 'onnxruntime-web.mjs'),
+  ortCommonWrapper: join(vendorRoot, 'onnxruntime', 'onnxruntime-common.js'),
+  ortWebWrapper: join(vendorRoot, 'onnxruntime', 'onnxruntime-web.js'),
   hfLicense: join(vendorRoot, 'licenses', 'huggingface-transformers.LICENSE'),
   ortLicense: join(vendorRoot, 'licenses', 'onnxruntime-web.LICENSE'),
 }
@@ -36,8 +36,8 @@ const originalOrtImports = [
 ].join('\n')
 
 const vendoredOrtImports = [
-  'import * as __WEBPACK_EXTERNAL_MODULE_onnxruntime_common_82b39e9f__ from "../onnxruntime/onnxruntime-common.mjs";',
-  'import * as __WEBPACK_EXTERNAL_MODULE_onnxruntime_web_74d14b94__ from "../onnxruntime/onnxruntime-web.mjs";',
+  'import * as __WEBPACK_EXTERNAL_MODULE_onnxruntime_common_82b39e9f__ from "../onnxruntime/onnxruntime-common.js";',
+  'import * as __WEBPACK_EXTERNAL_MODULE_onnxruntime_web_74d14b94__ from "../onnxruntime/onnxruntime-web.js";',
 ].join('\n')
 
 const ortSymbolBranchPattern = /if \(ORT_SYMBOL in globalThis\) \{\s+\/\/ If the JS runtime exposes their own ONNX runtime, use it\s+ONNX = globalThis\[ORT_SYMBOL\];\s+\} else if \(_env_js__WEBPACK_IMPORTED_MODULE_0__\.apis\.IS_NODE_ENV\) \{/
@@ -131,6 +131,7 @@ async function main() {
   ])
 
   const transformersSource = await readFile(files.transformers, 'utf8')
+  const ortModuleSource = await readFile(files.ortModule, 'utf8')
 
   if (!transformersSource.includes(originalOrtImports)) {
     throw new Error('Could not find onnxruntime imports in transformers.web.js')
@@ -148,16 +149,18 @@ async function main() {
     .replace(/\s{4}const sessionPromise = InferenceSession\.create\(buffer_or_path, session_options\);/, patchedCreateInferenceSession)
     .replace(/\s{4}return x instanceof ONNX\.Tensor;/, patchedIsOnnxTensor)
 
+  const patchedOrtModule = ortModuleSource.replaceAll('.mjs', '.js')
+
   await Promise.all([
     writeFileWithDirs(destinations.transformers, patchedTransformers),
-    copyFile(files.ortModule, destinations.ortModule),
+    writeFileWithDirs(destinations.ortModule, patchedOrtModule),
     copyFile(files.ortThreadedModule, destinations.ortThreadedModule),
     copyFile(files.ortWasm, destinations.ortWasm),
     writeFileWithDirs(
       destinations.ortCommonWrapper,
       [
-        'export * from \'./ort.wasm.min.mjs\'',
-        'import * as ort from \'./ort.wasm.min.mjs\'',
+        'export * from \'./ort.wasm.min.js\'',
+        'import * as ort from \'./ort.wasm.min.js\'',
         'export default ort',
         '',
       ].join('\n'),
@@ -165,8 +168,8 @@ async function main() {
     writeFileWithDirs(
       destinations.ortWebWrapper,
       [
-        'export * from \'./ort.wasm.min.mjs\'',
-        'import * as ort from \'./ort.wasm.min.mjs\'',
+        'export * from \'./ort.wasm.min.js\'',
+        'import * as ort from \'./ort.wasm.min.js\'',
         'export default ort',
         '',
       ].join('\n'),

@@ -126,27 +126,47 @@ async function findVendoredFilePath(candidateDir: string, basename: string) {
   return undefined
 }
 
-async function importVendoredModule<T>(relativeModulePath: string) {
-  let lastResolutionError: unknown
+function resolveVendoredCandidateDirs(subdirectory: string) {
+  const candidates = new Set<string>()
 
-  for (const extension of vendoredModuleExtensions) {
-    try {
-      const moduleUrl = new URL(`${relativeModulePath}${extension}`, import.meta.url)
-      return await import(moduleUrl.href) as T
-    }
-    catch (error) {
-      if (isModuleResolutionError(error)) {
-        lastResolutionError = error
-        continue
-      }
+  try {
+    const moduleEntry = require.resolve('nuxt-edge-ai')
+    candidates.add(join(dirname(moduleEntry), 'runtime', 'server', 'vendor', subdirectory))
+  }
+  catch {
+    // Ignore package-resolution failures while developing the module itself.
+  }
 
-      throw error
+  candidates.add(resolve(process.cwd(), 'node_modules', 'nuxt-edge-ai', 'dist', 'runtime', 'server', 'vendor', subdirectory))
+  candidates.add(resolve(process.cwd(), 'dist', 'runtime', 'server', 'vendor', subdirectory))
+  candidates.add(resolve(process.cwd(), 'src', 'runtime', 'server', 'vendor', subdirectory))
+
+  return [...candidates]
+}
+
+async function resolveVendoredFilePath(subdirectory: string, basename: string) {
+  for (const candidateDir of resolveVendoredCandidateDirs(subdirectory)) {
+    const candidatePath = await findVendoredFilePath(candidateDir, basename)
+    if (candidatePath) {
+      return candidatePath
     }
   }
 
-  throw lastResolutionError instanceof Error
-    ? lastResolutionError
-    : new Error(`Unable to resolve vendored module "${relativeModulePath}"`)
+  throw new Error(`Unable to locate vendored file "${subdirectory}/${basename}" on disk.`)
+}
+
+async function importVendoredModule<T>(subdirectory: string, basename: string) {
+  try {
+    const modulePath = await resolveVendoredFilePath(subdirectory, basename)
+    return await import(pathToFileURL(modulePath).href) as T
+  }
+  catch (error) {
+    if (isModuleResolutionError(error)) {
+      throw new Error(`Unable to resolve vendored module "${subdirectory}/${basename}"`)
+    }
+
+    throw error
+  }
 }
 
 function installFileFetchShim() {
@@ -181,28 +201,8 @@ function installFileFetchShim() {
 }
 
 async function resolveVendoredOnnxRuntimeBaseUrl() {
-  const candidates = new Set<string>()
-
-  try {
-    const moduleEntry = require.resolve('nuxt-edge-ai')
-    candidates.add(join(dirname(moduleEntry), 'runtime', 'server', 'vendor', 'onnxruntime'))
-  }
-  catch {
-    // Ignore package-resolution failures while developing the module itself.
-  }
-
-  candidates.add(resolve(process.cwd(), 'node_modules', 'nuxt-edge-ai', 'dist', 'runtime', 'server', 'vendor', 'onnxruntime'))
-  candidates.add(resolve(process.cwd(), 'dist', 'runtime', 'server', 'vendor', 'onnxruntime'))
-  candidates.add(resolve(process.cwd(), 'src', 'runtime', 'server', 'vendor', 'onnxruntime'))
-
-  for (const candidate of candidates) {
-    const runtimeModule = await findVendoredFilePath(candidate, 'ort-wasm-simd-threaded')
-    if (runtimeModule) {
-      return `${pathToFileURL(candidate).href}/`
-    }
-  }
-
-  throw new Error('Unable to locate vendored onnxruntime-web assets on disk.')
+  const runtimeModulePath = await resolveVendoredFilePath('onnxruntime', 'ort-wasm-simd-threaded')
+  return `${pathToFileURL(dirname(runtimeModulePath)).href}/`
 }
 
 async function loadTransformersRuntime() {
@@ -214,14 +214,14 @@ async function loadTransformersRuntime() {
     state.initPromise = (async () => {
       installFileFetchShim()
 
-      const ortModule = await importVendoredModule<{ InferenceSession?: unknown, default?: unknown }>('../vendor/onnxruntime/ort.wasm.min')
+      const ortModule = await importVendoredModule<{ InferenceSession?: unknown, default?: unknown }>('onnxruntime', 'ort.wasm.min')
       const ort = ((ortModule as { InferenceSession?: unknown }).InferenceSession
         ? ortModule
         : (ortModule as { default?: unknown }).default) ?? ortModule
       const globalWithOrt = globalThis as typeof globalThis & Record<symbol, unknown>
       globalWithOrt[Symbol.for('onnxruntime')] = ort
 
-      const transformers = await importVendoredModule<TransformersRuntimeModule>('../vendor/huggingface/transformers.web')
+      const transformers = await importVendoredModule<TransformersRuntimeModule>('huggingface', 'transformers.web')
       state.runtime = transformers
     })().catch((error) => {
       state.lastError = error instanceof Error ? error.message : String(error)
