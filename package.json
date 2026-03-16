@@ -1,0 +1,67 @@
+{
+  "name": "nuxt-edge-ai",
+  "version": "0.1.0",
+  "description": "Nuxt module for local-first AI apps powered by a bundled Transformers.js + ONNX Runtime WASM server runtime.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "workspaces": [
+    "playground"
+  ],
+  "scripts": {
+    "vendor:runtime": "node ./scripts/vendor-runtime.mjs",
+    "prepack": "pnpm vendor:runtime && nuxt-module-build build",
+    "dev": "pnpm dev:prepare && nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "pnpm vendor:runtime && nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "release": "pnpm lint && pnpm test && pnpm prepack && changelogen --release && npm publish && git push --follow-tags",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:types": "vue-tsc --noEmit && pnpm --dir playground exec vue-tsc --noEmit"
+  },
+  "keywords": [
+    "nuxt",
+    "nuxt-module",
+    "nitro",
+    "ai",
+    "wasm",
+    "onnx",
+    "transformers"
+  ],
+  "dependencies": {
+    "@nuxt/kit": "^4.4.2"
+  },
+  "devDependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "@nuxt/devtools": "^3.2.3",
+    "@nuxt/eslint-config": "^1.15.2",
+    "@nuxt/module-builder": "^1.0.2",
+    "@nuxt/schema": "^4.4.2",
+    "@nuxt/test-utils": "^4.0.0",
+    "@types/node": "latest",
+    "changelogen": "^0.6.2",
+    "eslint": "^10.0.3",
+    "nuxt": "^4.4.2",
+    "onnxruntime-web": "^1.24.3",
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.18",
+    "vue-tsc": "^3.2.5"
+  }
+}
