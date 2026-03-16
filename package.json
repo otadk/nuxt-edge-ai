@@ -4,6 +4,13 @@
   "description": "Nuxt module for local-first AI apps powered by a bundled Transformers.js + ONNX Runtime WASM server runtime.",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/otadk/nuxt-edge-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/otadk/nuxt-edge-ai/issues"
+  },
   "exports": {
     ".": {
       "types": "./dist/types.d.mts",

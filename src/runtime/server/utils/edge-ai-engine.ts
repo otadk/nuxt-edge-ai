@@ -63,12 +63,26 @@ interface OnnxRuntimeModule {
   }
 }
 
+interface MutableOnnxWasmConfig {
+  numThreads?: number
+  proxy?: boolean
+  wasmPaths?: string | Record<string, string>
+}
+
+interface MutableTransformersEnv {
+  backends?: {
+    onnx?: {
+      wasm?: MutableOnnxWasmConfig
+    }
+  }
+}
+
 const state: RuntimeState = {
   loading: false,
   warmed: false,
 }
 
-const require = createRequire(import.meta.url)
+const require = createRequire(resolve(process.cwd(), 'package.json'))
 
 function contentTypeForExtension(extension: string) {
   switch (extension) {
@@ -172,17 +186,7 @@ async function loadTransformersRuntime() {
 }
 
 function ensureOnnxWasmEnv(env: TransformersEnv) {
-  const envWithMutableBackends = env as TransformersEnv & {
-    backends?: {
-      onnx?: {
-        wasm?: {
-          numThreads?: number
-          proxy?: boolean
-          wasmPaths?: string | Record<string, string>
-        }
-      }
-    }
-  }
+  const envWithMutableBackends = env as unknown as MutableTransformersEnv
 
   envWithMutableBackends.backends ??= {}
   envWithMutableBackends.backends.onnx ??= {}
