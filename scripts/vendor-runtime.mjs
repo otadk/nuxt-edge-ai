@@ -145,8 +145,8 @@ async function main() {
     .replace(ortSymbolBranchPattern, patchedOrtSymbolBranch)
     .replace(originalDeviceFallback, patchedDeviceFallback)
     .replace(/\/\/ @ts-ignore\r?\nconst InferenceSession = ONNX\.InferenceSession;/, patchedInferenceSessionBinding)
-    .replace(/    const sessionPromise = InferenceSession\.create\(buffer_or_path, session_options\);/, patchedCreateInferenceSession)
-    .replace(/    return x instanceof ONNX\.Tensor;/, patchedIsOnnxTensor)
+    .replace(/\s{4}const sessionPromise = InferenceSession\.create\(buffer_or_path, session_options\);/, patchedCreateInferenceSession)
+    .replace(/\s{4}return x instanceof ONNX\.Tensor;/, patchedIsOnnxTensor)
 
   await Promise.all([
     writeFileWithDirs(destinations.transformers, patchedTransformers),
