@@ -1,5 +1,11 @@
 # nuxt-edge-ai
 
+[![npm version](https://img.shields.io/npm/v/nuxt-edge-ai/latest.svg)](https://www.npmjs.com/package/nuxt-edge-ai)
+[![npm downloads](https://img.shields.io/npm/dm/nuxt-edge-ai.svg)](https://www.npmjs.com/package/nuxt-edge-ai)
+[![license](https://img.shields.io/npm/l/nuxt-edge-ai.svg)](./LICENSE)
+[![nuxt](https://img.shields.io/badge/Nuxt-4.x-00DC82?logo=nuxt.js&logoColor=white)](https://nuxt.com/)
+[![ci](https://github.com/otadk/nuxt-edge-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/otadk/nuxt-edge-ai/actions/workflows/ci.yml)
+
 `nuxt-edge-ai` is a Nuxt module for building local-first AI applications with a real server-side WASM inference runtime.
 
 It ships:
@@ -12,6 +18,14 @@ It ships:
 
 The model weights are not bundled. Users either point the module at a local model directory or allow it to download and cache the model on first run.
 
+## Features
+
+- Nuxt module install surface designed for app integration
+- Nitro endpoints for health, pull, and generate workflows
+- local-first server-side inference with bundled WASM runtime assets
+- published package includes vendored inference runtime files
+- no consumer requirement for Ollama, Rust, C++, Python, or native AI runtimes
+
 ## Why this exists
 
 The goal is to make `nuxt-edge-ai` a credible, publishable Nuxt module:
@@ -19,7 +33,6 @@ The goal is to make `nuxt-edge-ai` a credible, publishable Nuxt module:
 - installable in a regular Nuxt app
 - able to run a real local model
 - packaged as JS/TS + WASM only
-- suitable as a strong portfolio / resume project
 
 ## Current runtime
 
@@ -79,6 +92,33 @@ const result = await edgeAI.generate({
 </script>
 ```
 
+## Configuration
+
+Top-level module options:
+
+| Option | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `routeBase` | `string` | `/api/edge-ai` | Base path for module endpoints |
+| `runtime` | `'transformers-wasm' \| 'mock'` | `transformers-wasm` | Use `mock` for smoke tests and fixture validation |
+| `cacheDir` | `string` | `./.cache/nuxt-edge-ai` | Cache and model asset directory |
+| `warmup` | `boolean` | `false` | Warm the runtime on health checks |
+| `model` | `object` | see below | Model runtime configuration |
+
+Model options:
+
+| Option | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `id` | `string` | `Xenova/distilgpt2` | Model identifier used when no local path is set |
+| `task` | `'text-generation'` | `text-generation` | Current supported task |
+| `localPath` | `string \| undefined` | `undefined` | Local model directory |
+| `allowRemote` | `boolean` | `true` | Allow first-run download from remote model source |
+| `dtype` | `string \| undefined` | `q8` | Runtime dtype passed to Transformers.js |
+| `generation.maxNewTokens` | `number` | `96` | Max generated tokens |
+| `generation.temperature` | `number` | `0.7` | Sampling temperature |
+| `generation.topP` | `number` | `0.9` | Top-p sampling |
+| `generation.doSample` | `boolean` | `true` | Enable sampling |
+| `generation.repetitionPenalty` | `number` | `1.05` | Repetition penalty |
+
 ## Consumer runtime guarantees
 
 Consumers do not need to install:
@@ -104,6 +144,15 @@ What consumers do need:
 - `useEdgeAI().pull()`
 - `useEdgeAI().generate()`
 
+## Troubleshooting
+
+Common checks:
+
+- Run `POST /api/edge-ai/health` first to confirm route wiring and runtime config.
+- Use `runtime: 'mock'` to separate module wiring issues from model/runtime issues.
+- If `pull` fails, inspect server logs first. Most early failures are model-path or packaged-runtime issues.
+- After changing vendored runtime files, always run `pnpm prepack` before validating a published-style install.
+
 ## Local development
 
 ```bash
@@ -125,9 +174,14 @@ pnpm prepack
 
 See [`docs/index.md`](./docs/index.md) for the project docs tree.
 
-## Repository shape
+Key docs:
 
-This repository follows a Nuxt modules-style layout:
+- [`docs/getting-started.md`](./docs/getting-started.md)
+- [`docs/models.md`](./docs/models.md)
+- [`docs/architecture.md`](./docs/architecture.md)
+- [`docs/third-party.md`](./docs/third-party.md)
+
+## Repository shape
 
 - `src/module.ts`: module entry and runtime config wiring
 - `src/runtime/`: composables, plugin, and Nitro runtime code
