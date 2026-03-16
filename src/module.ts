@@ -79,14 +79,13 @@ export default defineNuxtModule<ModuleOptions>({
     const routeBase = normalizeRouteBase(options.routeBase)
     const cacheDir = resolveMaybeAbsolute(nuxt.options.rootDir, options.cacheDir) ?? options.cacheDir
     const modelLocalPath = resolveMaybeAbsolute(nuxt.options.rootDir, options.model.localPath)
-    const runtimeConfig = nuxt.options.runtimeConfig as typeof nuxt.options.runtimeConfig & {
+    const runtimeConfig = nuxt.options.runtimeConfig as unknown as {
       edgeAI?: EdgeAIServerRuntimeConfig
-      public: typeof nuxt.options.runtimeConfig.public & {
+      public: {
         edgeAI?: EdgeAIPublicRuntimeConfig
       }
     }
-
-    runtimeConfig.edgeAI = {
+    const serverRuntimeConfig: EdgeAIServerRuntimeConfig = {
       routeBase,
       runtime: options.runtime,
       cacheDir,
@@ -94,9 +93,7 @@ export default defineNuxtModule<ModuleOptions>({
       model: {
         id: options.model.id,
         task: options.model.task,
-        localPath: modelLocalPath,
         allowRemote: options.model.allowRemote,
-        dtype: options.model.dtype,
         generation: {
           maxNewTokens: options.model.generation.maxNewTokens,
           temperature: options.model.generation.temperature,
@@ -105,13 +102,23 @@ export default defineNuxtModule<ModuleOptions>({
           repetitionPenalty: options.model.generation.repetitionPenalty,
         },
       },
-    } as EdgeAIServerRuntimeConfig
+    }
+
+    if (modelLocalPath) {
+      serverRuntimeConfig.model.localPath = modelLocalPath
+    }
+
+    if (options.model.dtype) {
+      serverRuntimeConfig.model.dtype = options.model.dtype
+    }
+
+    runtimeConfig.edgeAI = serverRuntimeConfig
 
     runtimeConfig.public.edgeAI = {
       routeBase,
       runtime: options.runtime,
       defaultModel: options.model.id,
-    } as EdgeAIPublicRuntimeConfig
+    }
 
     addImportsDir(resolver.resolve('./runtime/composables'))
     addPlugin(resolver.resolve('./runtime/plugin'))
