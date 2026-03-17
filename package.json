@@ -8,6 +8,7 @@
     "type": "git",
     "url": "git+https://github.com/otadk/nuxt-edge-ai.git"
   },
+  "homepage": "https://github.com/otadk/nuxt-edge-ai#readme",
   "bugs": {
     "url": "https://github.com/otadk/nuxt-edge-ai/issues"
   },
@@ -48,6 +49,9 @@
     "nuxt-module",
     "nitro",
     "ai",
+    "local-first",
+    "openai-compatible",
+    "chat-completions",
     "wasm",
     "onnx",
     "transformers"

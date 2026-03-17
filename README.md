@@ -20,6 +20,12 @@ It ships:
 
 The model weights are not bundled. Users either point the module at a local model directory or allow it to download and cache the model on first run.
 
+## Demo
+
+- Minimal local-only StackBlitz demo: https://stackblitz.com/edit/nuxt-starter-t2mavk3t?file=package.json
+
+The StackBlitz example keeps the setup intentionally small and uses the OpenAI-style `chat.completions.create()` call shape against the local provider only.
+
 ## Features
 
 - Nuxt module install surface designed for app integration
@@ -52,6 +58,29 @@ Built-in local preset:
 
 The local path is intentionally conservative now. When local inference is not enough, the module can fall back to a remote OpenAI-compatible API.
 
+## Support Matrix
+
+| Surface | Status | Notes |
+| --- | --- | --- |
+| Nuxt | Supported | `^4.4.0` and newer Nuxt 4 releases |
+| Runtime | Supported | Node/Nitro server runtime |
+| Local inference | Supported | Bundled Transformers.js + ONNX Runtime WASM |
+| Remote inference | Supported | OpenAI-compatible `chat/completions` providers |
+| Mock mode | Supported | Fixture tests, CI, and integration smoke checks |
+| Streaming | Not yet supported | `stream: true` requests are rejected today |
+| Edge runtime workers | Not yet supported | The local WASM runtime currently assumes a Node server process |
+
+## Validation
+
+This module is validated through:
+
+- fixture-based Nuxt module tests in `test/`
+- type checks for both the module and the playground app
+- a local playground app in `playground/`
+- a published-style external consumer smoke test before release
+
+That keeps the package focused on the real consumer path: install the module, register it in `nuxt.config.ts`, and call the exposed Nitro routes or injected client.
+
 ## Install
 
 ```bash
@@ -83,11 +112,21 @@ const edgeAI = useEdgeAI()
 
 await edgeAI.pull()
 
-const result = await edgeAI.generate({
-  prompt: 'Write a pitch for a local-first Nuxt AI module.',
+const completion = await edgeAI.client.chat.completions.create({
+  model: edgeAI.defaultModel,
+  messages: [
+    {
+      role: 'user',
+      content: 'Write a pitch for a local-first Nuxt AI module.',
+    },
+  ],
 })
+
+const text = String(completion.choices[0]?.message.content ?? '')
 </script>
 ```
+
+If you prefer the lower-level route wrapper, `useEdgeAI().chatCompletions()` accepts the same OpenAI-style payload shape.
 
 ## Configuration
 
@@ -217,8 +256,8 @@ What consumers do need:
 - `POST /api/edge-ai/chat/completions`
 - `useEdgeAI().health()`
 - `useEdgeAI().pull()`
-- `useEdgeAI().generate()`
 - `useEdgeAI().chatCompletions()`
+- `useEdgeAI().client.chat.completions.create()`
 
 Health responses also expose:
 
@@ -253,6 +292,24 @@ const response = await client.chat.completions.create({
 })
 ```
 
+Using `useEdgeAI()` inside a Nuxt app with the same calling style:
+
+```ts
+const edgeAI = useEdgeAI()
+
+await edgeAI.pull()
+
+const response = await edgeAI.client.chat.completions.create({
+  model: edgeAI.defaultModel,
+  messages: [
+    {
+      role: 'user',
+      content: 'Summarize the module in one sentence.',
+    },
+  ],
+})
+```
+
 Using the OpenAI SDK against the same route:
 
 ```ts
@@ -275,7 +332,7 @@ const response = await client.chat.completions.create({
 })
 ```
 
-Inside a Nuxt app you can also use `useEdgeAI().client.chat.completions.create(...)`.
+If you want to call the route wrapper directly, `useEdgeAI().chatCompletions(...)` maps to the same `/chat/completions` endpoint.
 
 When the module is using a remote OpenAI-compatible backend, it forwards `messages`, `reasoning`, and any extra `remoteBody` fields. If the upstream provider returns `reasoning_details`, the module preserves them on `choices[0].message`.
 
@@ -305,6 +362,14 @@ Common checks:
 - Remote fallback requires `edgeAI.remote.enabled: true` plus `edgeAI.remote.apiKey`.
 - If `pull` fails, inspect server logs first. Most early failures are model-path or packaged-runtime issues.
 - After changing vendored runtime files, always run `pnpm prepack` before validating a published-style install.
+
+## Known limitations
+
+- Streaming chat completions are not implemented yet.
+- The local provider currently targets `text-generation` only.
+- The local WASM runtime is designed for a Node/Nitro server process, not edge-worker runtimes.
+- Model quality and latency depend heavily on the selected preset or upstream remote model.
+- Model weights are not bundled in the npm package; local-first usage still requires either a local model path or a first-run download.
 
 ## Local development
 
@@ -346,4 +411,4 @@ Key docs:
 
 ## Status
 
-This is still an MVP, but it now supports three execution modes behind one API: `local`, `remote`, and `mock`.
+This module is ready for community consumption, but it is still intentionally scoped. The stable contract today is a Nuxt module that exposes one AI surface across three execution modes: `local`, `remote`, and `mock`.

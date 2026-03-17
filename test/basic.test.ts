@@ -39,7 +39,7 @@ describe('ssr', async () => {
     const response = await $fetch<EdgeAIGenerateResponse>('/api/edge-ai/generate', {
       method: 'POST',
       body: {
-        prompt: 'Create a hiring-friendly Nuxt AI module pitch.',
+        prompt: 'Create a concise Nuxt AI module pitch.',
       },
     })
 

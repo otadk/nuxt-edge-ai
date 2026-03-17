@@ -128,7 +128,11 @@ function resolveRemoteConfig(remote?: EdgeAIRemoteOptions): EdgeAIRemoteConfig {
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-edge-ai',
+    version: '0.1.3',
     configKey: 'edgeAI',
+    compatibility: {
+      nuxt: '^4.4.0',
+    },
   },
   defaults: {
     routeBase: '/api/edge-ai',
