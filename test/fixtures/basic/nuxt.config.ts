@@ -7,7 +7,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-03-16',
   edgeAI: {
     routeBase: '/api/edge-ai',
-    runtime: 'mock',
+    provider: 'mock',
     model: {
       id: 'mock-model',
       task: 'text-generation',

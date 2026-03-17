@@ -1,5 +1,8 @@
 import type { NuxtApp } from '#app'
+import type { EdgeAI } from './runtime/client'
 import type {
+  EdgeAIChatCompletionRequest,
+  EdgeAIChatCompletionResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIHealthResponse,
@@ -12,10 +15,16 @@ declare module '#app' {
   interface NuxtApp {
     $edgeAI: {
       routeBase: string
-      runtime: 'transformers-wasm' | 'mock'
+      provider: 'local' | 'remote' | 'mock'
+      runtime: 'transformers-wasm' | 'remote' | 'mock'
       defaultModel: string
+      remoteModel: string
+      preset?: string
+      remoteFallback: boolean
+      client: EdgeAI
       pull: () => Promise<EdgeAIPullResponse>
       generate: (payload: EdgeAIGenerateRequest) => Promise<EdgeAIGenerateResponse>
+      chatCompletions: (payload: EdgeAIChatCompletionRequest) => Promise<EdgeAIChatCompletionResponse>
       health: () => Promise<EdgeAIHealthResponse>
     }
   }

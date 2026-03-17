@@ -1,37 +1,58 @@
 # Models
 
-## Default quick-start model
+## Built-in local presets
 
-For fast validation:
+- `distilgpt2`
+  Fast smoke-test preset based on `Xenova/distilgpt2`.
 
-- `Xenova/distilgpt2`
+## What this module can actually run
 
-Pros:
+This module is not a generic “all Hugging Face models” launcher.
 
-- small
-- fast first run
-- easy to verify the runtime works
+The local provider is designed for:
 
-Cons:
+- `Transformers.js` compatible tasks
+- ONNX-backed models
+- model repositories that work with the bundled WASM runtime
 
-- not instruction-tuned
-- weak quality for product demos
+So the right strategy is:
 
-## Better portfolio target
+- ship a minimal verified preset
+- let users override the model ID
+- let teams register their own presets in `nuxt.config.ts`
 
-For a stronger demo after the module is stable:
-
-- `onnx-community/Qwen2.5-0.5B-Instruct-ONNX`
-
-This is the direction to move toward for a better interview demo.
-
-## Configuration fields
+## Local model fields
 
 - `model.id`: remote model ID
 - `model.localPath`: optional local model directory
 - `model.allowRemote`: whether remote download is allowed
 - `model.dtype`: runtime dtype hint
 - `model.generation.*`: default generation parameters
+
+## Custom preset registration
+
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-edge-ai'],
+  edgeAI: {
+    provider: 'local',
+    preset: 'team-default',
+    presets: {
+      'team-default': {
+        label: 'Team Default',
+        description: 'Project-specific verified ONNX model',
+        model: {
+          id: 'Xenova/distilgpt2',
+          dtype: 'q8',
+          generation: {
+            maxNewTokens: 120,
+          },
+        },
+      },
+    },
+  },
+})
+```
 
 ## Local model strategy
 
@@ -47,8 +68,20 @@ Two supported modes:
    - optionally disable remote download
    - point at a prepared model directory
 
+## Remote provider strategy
+
+If local WASM quality or latency is not enough, either switch to `provider: 'remote'` or keep `provider: 'local'` and enable remote fallback.
+
+That keeps:
+
+- the same Nuxt module
+- the same Nitro routes
+- the same composable API
+
+But replaces local inference with a hosted OpenAI-compatible backend.
+
 ## Notes
 
 - model weights are intentionally excluded from the npm package
 - cache location is configured through `edgeAI.cacheDir`
-- larger instruct models should be introduced after the MVP path is stable
+- larger instruct models should be introduced as verified presets, not as undocumented “maybe works” IDs

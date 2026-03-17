@@ -6,13 +6,15 @@
 [![nuxt](https://img.shields.io/badge/Nuxt-4.x-00DC82?logo=nuxt.js&logoColor=white)](https://nuxt.com/)
 [![ci](https://github.com/otadk/nuxt-edge-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/otadk/nuxt-edge-ai/actions/workflows/ci.yml)
 
-`nuxt-edge-ai` is a Nuxt module for building local-first AI applications with a real server-side WASM inference runtime.
+`nuxt-edge-ai` is a Nuxt module for building local-first AI applications with a real server-side WASM inference runtime and an optional remote API fallback.
 
 It ships:
 
 - a Nuxt module install surface
 - Nitro API routes for health, model pull, and generation
 - a client composable for app-side usage
+- an `EdgeAI` SDK with an OpenAI-like `chat.completions.create()` surface
+- switchable `local`, `remote`, and `mock` providers behind one module API
 - a vendored `transformers.js` + `onnxruntime-web` runtime inside the package
 - no Ollama, no `llama.cpp`, no Rust/C++/native runtime dependency for consumers
 
@@ -23,6 +25,8 @@ The model weights are not bundled. Users either point the module at a local mode
 - Nuxt module install surface designed for app integration
 - Nitro endpoints for health, pull, and generate workflows
 - local-first server-side inference with bundled WASM runtime assets
+- optional OpenAI-compatible remote provider for stronger hosted models
+- OpenAI-compatible `chat/completions` endpoint for SDK-style integration
 - published package includes vendored inference runtime files
 - no consumer requirement for Ollama, Rust, C++, Python, or native AI runtimes
 
@@ -36,19 +40,17 @@ The goal is to make `nuxt-edge-ai` a credible, publishable Nuxt module:
 
 ## Current runtime
 
-Current real runtime path:
+Current local runtime path:
 
 - `transformers.js` web build
 - `onnxruntime-web` WASM backend
 - server-side execution through Nitro
 
-Recommended first demo model:
+Built-in local preset:
 
-- `Xenova/distilgpt2` for quick validation
+- `distilgpt2`
 
-Recommended next upgrade target:
-
-- `onnx-community/Qwen2.5-0.5B-Instruct-ONNX`
+The local path is intentionally conservative now. When local inference is not enough, the module can fall back to a remote OpenAI-compatible API.
 
 ## Install
 
@@ -61,20 +63,15 @@ pnpm add nuxt-edge-ai
 export default defineNuxtConfig({
   modules: ['nuxt-edge-ai'],
   edgeAI: {
-    runtime: 'transformers-wasm',
+    provider: 'local',
     cacheDir: './.cache/nuxt-edge-ai',
-    model: {
-      id: 'Xenova/distilgpt2',
-      task: 'text-generation',
-      allowRemote: true,
-      dtype: 'q8',
-      generation: {
-        maxNewTokens: 96,
-        temperature: 0.7,
-        topP: 0.9,
-        doSample: true,
-        repetitionPenalty: 1.05,
-      },
+    preset: 'distilgpt2',
+    remote: {
+      enabled: true,
+      fallback: true,
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: process.env.OPENAI_API_KEY,
+      model: 'gpt-4o-mini',
     },
   },
 })
@@ -99,12 +96,16 @@ Top-level module options:
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
 | `routeBase` | `string` | `/api/edge-ai` | Base path for module endpoints |
-| `runtime` | `'transformers-wasm' \| 'mock'` | `transformers-wasm` | Use `mock` for smoke tests and fixture validation |
+| `provider` | `'local' \| 'remote' \| 'mock'` | `local` | Runtime backend selector |
+| `runtime` | `'transformers-wasm' \| 'mock'` | legacy | Backward-compatible alias for older configs |
 | `cacheDir` | `string` | `./.cache/nuxt-edge-ai` | Cache and model asset directory |
 | `warmup` | `boolean` | `false` | Warm the runtime on health checks |
-| `model` | `object` | see below | Model runtime configuration |
+| `preset` | `string` | `distilgpt2` | Local model preset |
+| `presets` | `Record<string, ...>` | `undefined` | Register additional local presets |
+| `model` | `object` | see below | Override the local model preset |
+| `remote` | `object` | see below | Remote provider and fallback settings |
 
-Model options:
+Local model options:
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -118,6 +119,79 @@ Model options:
 | `generation.topP` | `number` | `0.9` | Top-p sampling |
 | `generation.doSample` | `boolean` | `true` | Enable sampling |
 | `generation.repetitionPenalty` | `number` | `1.05` | Repetition penalty |
+
+Remote provider options:
+
+| Option | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | `false` | Enable remote provider settings |
+| `fallback` | `boolean` | `true` | Fall back to remote if local pull/generate fails |
+| `baseUrl` | `string` | `https://api.openai.com/v1` | Remote API base URL |
+| `path` | `string` | `/chat/completions` | OpenAI-compatible endpoint path |
+| `model` | `string` | `gpt-4o-mini` | Default remote model ID |
+| `apiKey` | `string \| undefined` | `undefined` | Inline API key |
+| `headers` | `Record<string, string> \| undefined` | `undefined` | Extra request headers |
+| `systemPrompt` | `string \| undefined` | `undefined` | Optional system instruction |
+
+## Provider examples
+
+Local-only mode:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-edge-ai'],
+  edgeAI: {
+    provider: 'local',
+    preset: 'distilgpt2',
+    remote: {
+      enabled: false,
+    },
+  },
+})
+```
+
+Local with automatic remote fallback:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-edge-ai'],
+  edgeAI: {
+    provider: 'local',
+    preset: 'distilgpt2',
+    remote: {
+      enabled: true,
+      fallback: true,
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: process.env.OPENAI_API_KEY,
+      model: 'gpt-4o-mini',
+    },
+  },
+})
+```
+
+Custom preset registration:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-edge-ai'],
+  edgeAI: {
+    presets: {
+      'team-default': {
+        label: 'Team Default',
+        description: 'Project-specific local preset',
+        model: {
+          id: 'Xenova/distilgpt2',
+          dtype: 'q8',
+          generation: {
+            maxNewTokens: 120,
+          },
+        },
+      },
+    },
+    preset: 'team-default',
+  },
+})
+```
 
 ## Consumer runtime guarantees
 
@@ -140,16 +214,95 @@ What consumers do need:
 - `GET /api/edge-ai/health`
 - `POST /api/edge-ai/pull`
 - `POST /api/edge-ai/generate`
+- `POST /api/edge-ai/chat/completions`
 - `useEdgeAI().health()`
 - `useEdgeAI().pull()`
 - `useEdgeAI().generate()`
+- `useEdgeAI().chatCompletions()`
+
+Health responses also expose:
+
+- `provider`
+- `presets`
+- `remoteFallback`
+- `engine.ready`
+- `engine.lastError`
+
+## OpenAI-compatible chat completions
+
+You can either point the official OpenAI client at the module's Nitro route, or use the package's own `EdgeAI` client with the same calling style.
+
+Using `EdgeAI` directly:
+
+```ts
+import { EdgeAI } from 'nuxt-edge-ai'
+
+const client = new EdgeAI({
+  baseURL: 'http://localhost:3000/api/edge-ai',
+})
+
+const response = await client.chat.completions.create({
+  model: 'openai/gpt-oss-20b:free',
+  messages: [
+    {
+      role: 'user',
+      content: "How many r's are in strawberry?",
+    },
+  ],
+  reasoning: { enabled: true },
+})
+```
+
+Using the OpenAI SDK against the same route:
+
+```ts
+import OpenAI from 'openai'
+
+const client = new OpenAI({
+  baseURL: 'http://localhost:3000/api/edge-ai',
+  apiKey: 'local-dev-token',
+})
+
+const response = await client.chat.completions.create({
+  model: 'openai/gpt-oss-20b:free',
+  messages: [
+    {
+      role: 'user',
+      content: "How many r's are in strawberry?",
+    },
+  ],
+  reasoning: { enabled: true },
+})
+```
+
+Inside a Nuxt app you can also use `useEdgeAI().client.chat.completions.create(...)`.
+
+When the module is using a remote OpenAI-compatible backend, it forwards `messages`, `reasoning`, and any extra `remoteBody` fields. If the upstream provider returns `reasoning_details`, the module preserves them on `choices[0].message`.
+
+Example OpenRouter-style config:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-edge-ai'],
+  edgeAI: {
+    provider: 'remote',
+    remote: {
+      enabled: true,
+      baseUrl: 'https://openrouter.ai/api/v1',
+      apiKey: process.env.OPENROUTER_API_KEY,
+      model: 'openai/gpt-oss-20b:free',
+    },
+  },
+})
+```
 
 ## Troubleshooting
 
 Common checks:
 
 - Run `POST /api/edge-ai/health` first to confirm route wiring and runtime config.
-- Use `runtime: 'mock'` to separate module wiring issues from model/runtime issues.
+- Use `provider: 'mock'` to separate module wiring issues from model/runtime issues.
+- Remote fallback requires `edgeAI.remote.enabled: true` plus `edgeAI.remote.apiKey`.
 - If `pull` fails, inspect server logs first. Most early failures are model-path or packaged-runtime issues.
 - After changing vendored runtime files, always run `pnpm prepack` before validating a published-style install.
 
@@ -177,6 +330,7 @@ See [`docs/index.md`](./docs/index.md) for the project docs tree.
 Key docs:
 
 - [`docs/getting-started.md`](./docs/getting-started.md)
+- [`docs/api.md`](./docs/api.md)
 - [`docs/models.md`](./docs/models.md)
 - [`docs/architecture.md`](./docs/architecture.md)
 - [`docs/third-party.md`](./docs/third-party.md)
@@ -192,4 +346,4 @@ Key docs:
 
 ## Status
 
-This is an MVP, but it now runs a real model instead of mock text when `runtime: 'transformers-wasm'` is enabled.
+This is still an MVP, but it now supports three execution modes behind one API: `local`, `remote`, and `mock`.

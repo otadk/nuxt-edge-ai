@@ -13,10 +13,21 @@ That means the published package needs to carry the exact JS/WASM assets it depe
 
 ## Vendored files
 
-- patched `transformers.web.mjs`
-- `ort.wasm.min.mjs`
-- `ort-wasm-simd-threaded.mjs`
-- `ort-wasm-simd-threaded.wasm`
+- patched `huggingface/transformers.web.js`
+- `onnxruntime/ort.wasm.min.js`
+- `onnxruntime/ort-wasm-simd-threaded.js`
+- `onnxruntime/ort-wasm-simd-threaded.wasm`
+- `onnxruntime/onnxruntime-common.js`
+- `onnxruntime/onnxruntime-web.js`
+
+## Runtime patches
+
+The vendoring step applies a few targeted patches so the runtime works inside Nitro:
+
+- rewrites Transformers.js imports to point at vendored ONNX Runtime wrappers
+- keeps `wasm` available as a supported device when ONNX Runtime is injected through `globalThis`
+- rewrites ONNX Runtime module references from `.mjs` to `.js` for package and Nitro compatibility
+- emits wrapper modules for `onnxruntime-common` and `onnxruntime-web`
 
 ## Source generation
 
@@ -32,4 +43,9 @@ The vendoring script also copies available third-party license files into:
 
 - `src/runtime/server/vendor/licenses/`
 
-This should be reviewed before publish and expanded if additional vendored assets are added.
+Current copied licenses include:
+
+- `huggingface-transformers.LICENSE`
+- `onnxruntime-web.LICENSE`
+
+This directory should be reviewed before publish and expanded if additional vendored assets are added.

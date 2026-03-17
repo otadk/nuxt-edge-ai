@@ -6,11 +6,12 @@ import { generateEdgeAIText } from '../utils/edge-ai-engine'
 export default defineEventHandler(async (event) => {
   const body = await readBody<EdgeAIGenerateRequest>(event)
   const prompt = body?.prompt?.trim()
+  const hasMessages = Array.isArray(body?.messages) && body.messages.length > 0
 
-  if (!prompt) {
+  if (!prompt && !hasMessages) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Prompt is required.',
+      statusMessage: 'Prompt or messages are required.',
     })
   }
 
@@ -18,7 +19,11 @@ export default defineEventHandler(async (event) => {
 
   return generateEdgeAIText(config, {
     prompt,
+    remote: body.remote,
     model: body.model,
+    messages: body.messages,
+    reasoning: body.reasoning,
+    remoteBody: body.remoteBody,
     generation: body.generation,
   })
 })

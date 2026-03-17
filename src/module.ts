@@ -7,34 +7,51 @@ import {
   createResolver,
   defineNuxtModule,
 } from '@nuxt/kit'
+import { builtinModelPresets, mergeModelConfig } from './runtime/presets'
 import type {
   EdgeAIGenerationOptions,
+  EdgeAIModelPresetDefinition,
+  EdgeAIModelPresetSummary,
+  EdgeAIModelResolvedConfig,
   EdgeAIPublicRuntimeConfig,
+  EdgeAIProvider,
+  EdgeAIRemoteConfig,
   EdgeAIServerRuntimeConfig,
 } from './runtime/types'
 
+export { EdgeAI } from './runtime/client'
+export type { EdgeAIClientOptions } from './runtime/client'
+
 export type {
-  EdgeAIPullResponse,
+  EdgeAIChatCompletionRequest,
+  EdgeAIChatCompletionResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIHealthResponse,
+  EdgeAIRemoteMessage,
+  EdgeAIRemoteReasoningOptions,
+  EdgeAIPullResponse,
 } from './runtime/types'
 
-export interface EdgeAIModelOptions {
-  id: string
-  task: 'text-generation'
-  localPath?: string
-  allowRemote: boolean
-  dtype?: string
-  generation: EdgeAIGenerationOptions
+export interface EdgeAIModelOptions extends Partial<Omit<EdgeAIModelResolvedConfig, 'generation'>> {
+  generation?: Partial<EdgeAIGenerationOptions>
+}
+
+export interface EdgeAIRemoteOptions extends Partial<EdgeAIRemoteConfig> {
+  baseURL?: string
+  headers?: Record<string, string>
 }
 
 export interface ModuleOptions {
-  routeBase: string
-  runtime: 'transformers-wasm' | 'mock'
-  cacheDir: string
-  warmup: boolean
-  model: EdgeAIModelOptions
+  routeBase?: string
+  provider?: EdgeAIProvider
+  runtime?: 'transformers-wasm' | 'mock'
+  cacheDir?: string
+  warmup?: boolean
+  preset?: string
+  presets?: Record<string, Partial<EdgeAIModelPresetDefinition> & { model: EdgeAIModelOptions }>
+  model?: EdgeAIModelOptions
+  remote?: EdgeAIRemoteOptions
 }
 
 function resolveMaybeAbsolute(rootDir: string, value?: string) {
@@ -45,9 +62,67 @@ function resolveMaybeAbsolute(rootDir: string, value?: string) {
   return isAbsolute(value) ? value : resolve(rootDir, value)
 }
 
-function normalizeRouteBase(routeBase: string) {
-  const normalized = routeBase.trim().replace(/\/+$/, '')
+function normalizeRouteBase(routeBase?: string) {
+  const normalized = routeBase?.trim().replace(/\/+$/, '')
   return normalized || '/api/edge-ai'
+}
+
+function resolveProvider(options: ModuleOptions): EdgeAIProvider {
+  if (options.runtime === 'mock') {
+    return 'mock'
+  }
+
+  return options.provider || 'local'
+}
+
+function resolveRuntime(provider: EdgeAIProvider) {
+  if (provider === 'local') {
+    return 'transformers-wasm' as const
+  }
+
+  return provider
+}
+
+function normalizePresetRegistry(
+  presets?: ModuleOptions['presets'],
+): Record<string, EdgeAIModelPresetDefinition> {
+  const normalized: Record<string, EdgeAIModelPresetDefinition> = { ...builtinModelPresets }
+
+  for (const [id, preset] of Object.entries(presets || {})) {
+    normalized[id] = {
+      label: preset.label || id,
+      description: preset.description || `Custom preset "${id}".`,
+      model: mergeModelConfig(builtinModelPresets.distilgpt2!.model, preset.model),
+    }
+  }
+
+  return normalized
+}
+
+function toPresetSummary(id: string, preset: EdgeAIModelPresetDefinition): EdgeAIModelPresetSummary {
+  return {
+    id,
+    label: preset.label,
+    description: preset.description,
+    model: {
+      id: preset.model.id,
+      task: preset.model.task,
+      dtype: preset.model.dtype,
+    },
+  }
+}
+
+function resolveRemoteConfig(remote?: EdgeAIRemoteOptions): EdgeAIRemoteConfig {
+  return {
+    enabled: remote?.enabled ?? false,
+    fallback: remote?.fallback ?? true,
+    baseUrl: remote?.baseUrl || remote?.baseURL || 'https://api.openai.com/v1',
+    apiKey: remote?.apiKey,
+    path: remote?.path || '/chat/completions',
+    model: remote?.model || 'gpt-4o-mini',
+    headers: remote?.headers,
+    systemPrompt: remote?.systemPrompt,
+  }
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -57,67 +132,71 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     routeBase: '/api/edge-ai',
-    runtime: 'transformers-wasm',
+    provider: 'local',
     cacheDir: './.cache/nuxt-edge-ai',
     warmup: false,
-    model: {
-      id: 'Xenova/distilgpt2',
-      task: 'text-generation',
-      allowRemote: true,
-      dtype: 'q8',
-      generation: {
-        maxNewTokens: 96,
-        temperature: 0.7,
-        topP: 0.9,
-        doSample: true,
-        repetitionPenalty: 1.05,
-      },
+    preset: 'distilgpt2',
+    model: {},
+    remote: {
+      enabled: false,
+      fallback: true,
+      baseUrl: 'https://api.openai.com/v1',
+      path: '/chat/completions',
+      model: 'gpt-4o-mini',
     },
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const routeBase = normalizeRouteBase(options.routeBase)
-    const cacheDir = resolveMaybeAbsolute(nuxt.options.rootDir, options.cacheDir) ?? options.cacheDir
-    const modelLocalPath = resolveMaybeAbsolute(nuxt.options.rootDir, options.model.localPath)
+    const provider = resolveProvider(options)
+    const runtime = resolveRuntime(provider)
+    const cacheDir = resolveMaybeAbsolute(nuxt.options.rootDir, options.cacheDir) ?? './.cache/nuxt-edge-ai'
+    const presetRegistry = normalizePresetRegistry(options.presets)
+    const presetId = options.preset || 'distilgpt2'
+    const preset = presetRegistry[presetId]
+
+    if (!preset) {
+      throw new Error(
+        `Unknown edgeAI preset "${presetId}". Available presets: ${Object.keys(presetRegistry).join(', ')}`,
+      )
+    }
+
+    const model = mergeModelConfig(preset.model, options.model)
     const runtimeConfig = nuxt.options.runtimeConfig as unknown as {
       edgeAI?: EdgeAIServerRuntimeConfig
       public: {
         edgeAI?: EdgeAIPublicRuntimeConfig
       }
     }
+    const presets = Object.entries(presetRegistry).map(([id, entry]) => toPresetSummary(id, entry))
+    const serverModel: EdgeAIModelResolvedConfig = {
+      ...model,
+      localPath: resolveMaybeAbsolute(nuxt.options.rootDir, model.localPath),
+    }
+    const remote = resolveRemoteConfig(options.remote)
     const serverRuntimeConfig: EdgeAIServerRuntimeConfig = {
       routeBase,
-      runtime: options.runtime,
+      provider,
+      runtime,
       cacheDir,
-      warmup: options.warmup,
-      model: {
-        id: options.model.id,
-        task: options.model.task,
-        allowRemote: options.model.allowRemote,
-        generation: {
-          maxNewTokens: options.model.generation.maxNewTokens,
-          temperature: options.model.generation.temperature,
-          topP: options.model.generation.topP,
-          doSample: options.model.generation.doSample,
-          repetitionPenalty: options.model.generation.repetitionPenalty,
-        },
-      },
-    }
-
-    if (modelLocalPath) {
-      serverRuntimeConfig.model.localPath = modelLocalPath
-    }
-
-    if (options.model.dtype) {
-      serverRuntimeConfig.model.dtype = options.model.dtype
+      warmup: Boolean(options.warmup),
+      preset: provider === 'local' ? presetId : undefined,
+      model: serverModel,
+      remote,
+      presets,
     }
 
     runtimeConfig.edgeAI = serverRuntimeConfig
 
     runtimeConfig.public.edgeAI = {
       routeBase,
-      runtime: options.runtime,
-      defaultModel: options.model.id,
+      provider,
+      runtime,
+      defaultModel: provider === 'remote' ? remote.model : serverModel.id,
+      remoteModel: remote.model,
+      preset: provider === 'local' ? presetId : undefined,
+      presets,
+      remoteFallback: remote.fallback,
     }
 
     addImportsDir(resolver.resolve('./runtime/composables'))
@@ -141,24 +220,40 @@ export default defineNuxtModule<ModuleOptions>({
       handler: resolver.resolve('./runtime/server/api/generate.post'),
     })
 
+    addServerHandler({
+      route: `${routeBase}/chat/completions`,
+      method: 'post',
+      handler: resolver.resolve('./runtime/server/api/chat-completions.post'),
+    })
+
     addTypeTemplate({
       filename: 'types/nuxt-edge-ai.d.ts',
       getContents: () => `import type { NuxtApp } from '#app'
 import type {
-  EdgeAIPullResponse,
+  EdgeAIChatCompletionRequest,
+  EdgeAIChatCompletionResponse,
+  EdgeAIClientOptions,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
-  EdgeAIHealthResponse
+  EdgeAIHealthResponse,
+  EdgeAIPullResponse
 } from 'nuxt-edge-ai'
+import type { EdgeAI } from 'nuxt-edge-ai'
 
 declare module '#app' {
   interface NuxtApp {
     $edgeAI: {
       routeBase: string
-      runtime: 'transformers-wasm' | 'mock'
+      provider: 'local' | 'remote' | 'mock'
+      runtime: 'transformers-wasm' | 'remote' | 'mock'
       defaultModel: string
+      remoteModel: string
+      preset?: string
+      remoteFallback: boolean
+      client: EdgeAI
       pull: () => Promise<EdgeAIPullResponse>
       generate: (payload: EdgeAIGenerateRequest) => Promise<EdgeAIGenerateResponse>
+      chatCompletions: (payload: EdgeAIChatCompletionRequest) => Promise<EdgeAIChatCompletionResponse>
       health: () => Promise<EdgeAIHealthResponse>
     }
   }

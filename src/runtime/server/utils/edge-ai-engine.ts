@@ -3,11 +3,15 @@ import { createRequire } from 'node:module'
 import { dirname, extname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type {
+  EdgeAIChatCompletionRequest,
+  EdgeAIChatCompletionResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIGenerationOptions,
   EdgeAIHealthResponse,
   EdgeAIModelInfo,
+  EdgeAIRemoteMessage,
+  EdgeAIRemoteConfig,
   EdgeAIServerRuntimeConfig,
   EdgeAIPullResponse,
 } from '../../types'
@@ -75,6 +79,27 @@ interface MutableTransformersEnv {
       wasm?: MutableOnnxWasmConfig
     }
   }
+}
+
+interface RemoteChatCompletionResponse {
+  id?: string
+  model?: string
+  choices?: Array<{
+    message?: {
+      role?: string
+      content?: string | Array<{ type?: string, text?: string }>
+      reasoning_details?: unknown
+      [key: string]: unknown
+    }
+    text?: string
+  }>
+  output_text?: string
+  output?: Array<{
+    content?: Array<{
+      text?: string
+      type?: string
+    }>
+  }>
 }
 
 const state: RuntimeState = {
@@ -244,7 +269,7 @@ function ensureOnnxWasmEnv(env: TransformersEnv) {
   return envWithMutableBackends.backends.onnx.wasm
 }
 
-function resolveModelSource(config: EdgeAIServerRuntimeConfig, modelOverride?: string): EdgeAIModelInfo {
+function resolveLocalModelSource(config: EdgeAIServerRuntimeConfig, modelOverride?: string): EdgeAIModelInfo {
   const requestedModel = modelOverride?.trim()
   const source = requestedModel || config.model.localPath || config.model.id
 
@@ -255,14 +280,46 @@ function resolveModelSource(config: EdgeAIServerRuntimeConfig, modelOverride?: s
     allowRemote: config.model.allowRemote,
     dtype: config.model.dtype,
     source,
+    preset: config.preset,
+  }
+}
+
+function resolveRemoteModelSource(config: EdgeAIServerRuntimeConfig, modelOverride?: string): EdgeAIModelInfo {
+  const model = modelOverride?.trim() || config.remote.model
+
+  return {
+    id: model,
+    task: 'text-generation',
+    allowRemote: true,
+    source: model,
   }
 }
 
 function currentEngineState(config: EdgeAIServerRuntimeConfig): EdgeAIHealthResponse['engine'] {
+  if (config.provider === 'mock') {
+    return {
+      active: 'mock',
+      ready: true,
+      warmed: true,
+      loading: false,
+      lastError: state.lastError,
+    }
+  }
+
+  if (config.provider === 'remote') {
+    return {
+      active: 'remote',
+      ready: Boolean(resolveRemoteApiKey(config.remote) || config.remote.headers?.Authorization),
+      warmed: false,
+      loading: false,
+      lastError: state.lastError,
+    }
+  }
+
   return {
-    active: config.runtime,
-    ready: config.runtime === 'mock' || Boolean(state.pipeline),
-    warmed: config.runtime === 'mock' || state.warmed,
+    active: 'local',
+    ready: Boolean(state.pipeline),
+    warmed: state.warmed,
     loading: state.loading,
     cacheDir: config.cacheDir,
     lastError: state.lastError,
@@ -270,7 +327,7 @@ function currentEngineState(config: EdgeAIServerRuntimeConfig): EdgeAIHealthResp
 }
 
 async function ensureTransformersPipeline(config: EdgeAIServerRuntimeConfig, modelOverride?: string) {
-  const model = resolveModelSource(config, modelOverride)
+  const model = resolveLocalModelSource(config, modelOverride)
   const modelKey = `${model.source}::${model.dtype ?? 'default'}`
 
   if (state.pipeline && state.modelKey === modelKey) {
@@ -364,12 +421,125 @@ function extractGeneratedText(prompt: string, output: unknown) {
   return JSON.stringify(output)
 }
 
+function extractTextFromMessageContent(content: unknown): string {
+  if (typeof content === 'string') {
+    return content
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item
+        }
+
+        if (item && typeof item === 'object' && 'text' in item) {
+          return String(item.text ?? '')
+        }
+
+        return ''
+      })
+      .join('')
+  }
+
+  if (content == null) {
+    return ''
+  }
+
+  return String(content)
+}
+
+function resolvePromptFromMessages(messages?: EdgeAIRemoteMessage[]) {
+  const lastUserMessage = [...(messages || [])]
+    .reverse()
+    .find(message => message.role === 'user')
+
+  if (!lastUserMessage) {
+    return ''
+  }
+
+  return extractTextFromMessageContent(lastUserMessage.content).trim()
+}
+
+function resolvePrompt(input: EdgeAIGenerateRequest) {
+  return input.prompt?.trim() || resolvePromptFromMessages(input.messages)
+}
+
+function buildRemoteMessages(config: EdgeAIServerRuntimeConfig, input: EdgeAIGenerateRequest) {
+  if (input.messages?.length) {
+    return input.messages
+  }
+
+  const prompt = resolvePrompt(input)
+  return [
+    ...(config.remote.systemPrompt
+      ? [{ role: 'system', content: config.remote.systemPrompt }]
+      : []),
+    { role: 'user', content: prompt },
+  ] satisfies EdgeAIRemoteMessage[]
+}
+
+function buildAssistantMessage(payload: RemoteChatCompletionResponse, text: string): EdgeAIRemoteMessage {
+  const choiceMessage = payload.choices?.[0]?.message
+
+  if (choiceMessage && typeof choiceMessage === 'object') {
+    return {
+      role: choiceMessage.role || 'assistant',
+      ...choiceMessage,
+      content: choiceMessage.content ?? text,
+    }
+  }
+
+  return {
+    role: 'assistant',
+    content: text,
+  }
+}
+
+function estimateTokenCount(text: string) {
+  return Math.max(1, Math.ceil(text.length / 4))
+}
+
+function toChatCompletionResponse(
+  request: EdgeAIChatCompletionRequest,
+  result: EdgeAIGenerateResponse,
+): EdgeAIChatCompletionResponse {
+  const promptText = resolvePromptFromMessages(request.messages)
+  const message = result.assistantMessage || {
+    role: 'assistant',
+    content: result.text,
+  }
+
+  return {
+    id: `chatcmpl_${Date.now().toString(36)}`,
+    object: 'chat.completion',
+    created: Math.floor(Date.now() / 1000),
+    model: result.model,
+    choices: [
+      {
+        index: 0,
+        message,
+        finish_reason: 'stop',
+      },
+    ],
+    usage: {
+      prompt_tokens: estimateTokenCount(promptText),
+      completion_tokens: estimateTokenCount(result.text),
+      total_tokens: estimateTokenCount(promptText) + estimateTokenCount(result.text),
+    },
+    provider: result.provider,
+    runtime: result.runtime,
+    fellBackToRemote: result.fellBackToRemote,
+  }
+}
+
 function runMockInference(config: EdgeAIServerRuntimeConfig, input: EdgeAIGenerateRequest): EdgeAIGenerateResponse {
   const generation = resolveGenerationOptions(config.model.generation, input.generation)
+  const prompt = resolvePrompt(input)
   const text = [
-    `Mock runtime for "${input.model || config.model.id}".`,
-    `Prompt received: ${input.prompt}`,
-    'Switch `edgeAI.runtime` to `transformers-wasm` to run the real WASM model runtime.',
+    `Mock provider for "${input.model || config.model.id}".`,
+    `Prompt received: ${prompt}`,
+    'Switch `edgeAI.provider` to `local` or `remote` to run a real model.',
   ].join(' ')
 
   return {
@@ -380,16 +550,160 @@ function runMockInference(config: EdgeAIServerRuntimeConfig, input: EdgeAIGenera
     generation,
     metrics: {
       latencyMs: 0,
-      promptLength: input.prompt.length,
+      promptLength: prompt.length,
       completionLength: text.length,
+    },
+    assistantMessage: {
+      role: 'assistant',
+      content: text,
     },
   }
 }
 
-export async function getEdgeAIHealth(config: EdgeAIServerRuntimeConfig): Promise<EdgeAIHealthResponse> {
-  const model = resolveModelSource(config)
+function resolveRemoteApiKey(config: EdgeAIRemoteConfig) {
+  if (config.apiKey?.trim()) {
+    return config.apiKey.trim()
+  }
 
-  if (config.runtime === 'transformers-wasm' && config.warmup && !state.pipeline && !state.loading) {
+  return undefined
+}
+
+function joinUrl(baseURL: string, path: string) {
+  const normalizedBase = baseURL.replace(/\/+$/, '')
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${normalizedBase}${normalizedPath}`
+}
+
+function extractRemoteText(payload: RemoteChatCompletionResponse) {
+  if (typeof payload.output_text === 'string' && payload.output_text.trim()) {
+    return payload.output_text.trim()
+  }
+
+  const choice = payload.choices?.[0]
+  if (typeof choice?.message?.content === 'string' && choice.message.content.trim()) {
+    return choice.message.content.trim()
+  }
+
+  if (Array.isArray(choice?.message?.content)) {
+    const text = choice.message.content
+      .map(item => item.text || '')
+      .join('')
+      .trim()
+
+    if (text) {
+      return text
+    }
+  }
+
+  if (typeof choice?.text === 'string' && choice.text.trim()) {
+    return choice.text.trim()
+  }
+
+  const outputText = payload.output?.[0]?.content
+    ?.map(item => item.text || '')
+    .join('')
+    .trim()
+
+  if (outputText) {
+    return outputText
+  }
+
+  return JSON.stringify(payload)
+}
+
+async function runRemoteInference(
+  config: EdgeAIServerRuntimeConfig,
+  input: EdgeAIGenerateRequest,
+): Promise<EdgeAIGenerateResponse> {
+  const generation = resolveGenerationOptions(config.model.generation, input.generation)
+  const apiKey = resolveRemoteApiKey(config.remote)
+
+  if (!apiKey && !config.remote.headers?.Authorization) {
+    throw new Error(
+      'Missing remote API key. Set edgeAI.remote.apiKey.',
+    )
+  }
+
+  const start = performance.now()
+  const body = {
+    model: input.model || config.remote.model,
+    messages: buildRemoteMessages(config, input),
+    temperature: generation.temperature,
+    top_p: generation.topP,
+    max_tokens: generation.maxNewTokens,
+    stream: false,
+    ...(input.reasoning ? { reasoning: input.reasoning } : {}),
+    ...(input.remoteBody || {}),
+  }
+  const response = await fetch(joinUrl(config.remote.baseUrl, config.remote.path), {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+      ...config.remote.headers,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Remote inference failed with ${response.status}: ${errorText}`)
+  }
+
+  const payload = await response.json() as RemoteChatCompletionResponse
+  const text = extractRemoteText(payload)
+  const assistantMessage = buildAssistantMessage(payload, text)
+  const prompt = resolvePrompt(input)
+  state.lastError = undefined
+
+  return {
+    text,
+    model: payload.model || input.model || config.remote.model,
+    runtime: 'remote',
+    provider: 'openai-compatible',
+    generation,
+    metrics: {
+      latencyMs: Number((performance.now() - start).toFixed(2)),
+      promptLength: prompt.length,
+      completionLength: text.length,
+    },
+    assistantMessage,
+  }
+}
+
+function shouldUseRemoteFallback(config: EdgeAIServerRuntimeConfig) {
+  return config.provider === 'local' && config.remote.enabled && config.remote.fallback
+}
+
+function shouldForceRemote(config: EdgeAIServerRuntimeConfig, input: EdgeAIGenerateRequest) {
+  return Boolean(input.remote && config.remote.enabled)
+}
+
+async function withRemoteFallback<T>(
+  config: EdgeAIServerRuntimeConfig,
+  action: () => Promise<T>,
+  fallback: () => Promise<T>,
+) {
+  try {
+    return await action()
+  }
+  catch (error) {
+    state.lastError = error instanceof Error ? error.message : String(error)
+
+    if (!shouldUseRemoteFallback(config)) {
+      throw error
+    }
+
+    return fallback()
+  }
+}
+
+export async function getEdgeAIHealth(config: EdgeAIServerRuntimeConfig): Promise<EdgeAIHealthResponse> {
+  const model = config.provider === 'remote'
+    ? resolveRemoteModelSource(config)
+    : resolveLocalModelSource(config)
+
+  if (config.provider === 'local' && config.warmup && !state.pipeline && !state.loading) {
     try {
       await ensureTransformersPipeline(config)
     }
@@ -401,65 +715,154 @@ export async function getEdgeAIHealth(config: EdgeAIServerRuntimeConfig): Promis
   return {
     status: 'ok',
     runtime: config.runtime,
+    provider: config.provider,
     model,
     defaults: config.model.generation,
     engine: currentEngineState(config),
+    presets: config.presets,
+    remoteFallback: config.remote.fallback,
   }
 }
 
 export async function pullEdgeAIModel(config: EdgeAIServerRuntimeConfig): Promise<EdgeAIPullResponse> {
-  if (config.runtime === 'mock') {
+  if (config.provider === 'mock') {
     return {
       status: 'ready',
       runtime: 'mock',
-      model: resolveModelSource(config),
+      provider: 'mock',
+      model: resolveLocalModelSource(config),
       engine: currentEngineState(config),
       loadedNow: false,
     }
   }
 
-  const { loadedNow, model } = await ensureTransformersPipeline(config)
-
-  return {
-    status: 'ready',
-    runtime: 'transformers-wasm',
-    model,
-    engine: currentEngineState(config),
-    loadedNow,
+  if (config.provider === 'remote') {
+    return {
+      status: 'ready',
+      runtime: 'remote',
+      provider: 'remote',
+      model: resolveRemoteModelSource(config),
+      engine: currentEngineState(config),
+      loadedNow: false,
+    }
   }
+
+  return withRemoteFallback(
+    config,
+    async (): Promise<EdgeAIPullResponse> => {
+      const { loadedNow, model } = await ensureTransformersPipeline(config)
+
+      return {
+        status: 'ready' as const,
+        runtime: 'transformers-wasm' as const,
+        provider: 'local' as const,
+        model,
+        engine: currentEngineState(config),
+        loadedNow,
+      }
+    },
+    async (): Promise<EdgeAIPullResponse> => ({
+      status: 'ready' as const,
+      runtime: 'remote' as const,
+      provider: 'remote' as const,
+      model: resolveRemoteModelSource(config),
+      engine: {
+        active: 'remote',
+        ready: true,
+        warmed: false,
+        loading: false,
+        lastError: state.lastError,
+      },
+      loadedNow: false,
+      fellBackToRemote: true,
+    }),
+  )
 }
 
 export async function generateEdgeAIText(
   config: EdgeAIServerRuntimeConfig,
   input: EdgeAIGenerateRequest,
 ): Promise<EdgeAIGenerateResponse> {
-  if (config.runtime === 'mock') {
+  if (config.provider === 'mock') {
     return runMockInference(config, input)
   }
 
-  const generation = resolveGenerationOptions(config.model.generation, input.generation)
-  const start = performance.now()
-  const { pipeline, model } = await ensureTransformersPipeline(config, input.model)
-  const output = await pipeline(input.prompt, {
-    max_new_tokens: generation.maxNewTokens,
-    temperature: generation.temperature,
-    top_p: generation.topP,
-    do_sample: generation.doSample,
-    repetition_penalty: generation.repetitionPenalty,
+  if (config.provider === 'remote') {
+    return runRemoteInference(config, input)
+  }
+
+  if (shouldForceRemote(config, input)) {
+    const remoteResponse = await runRemoteInference(config, input)
+    return {
+      ...remoteResponse,
+      fellBackToRemote: true,
+    }
+  }
+
+  return withRemoteFallback(
+    config,
+    async (): Promise<EdgeAIGenerateResponse> => {
+      const generation = resolveGenerationOptions(config.model.generation, input.generation)
+      const start = performance.now()
+      const { pipeline, model } = await ensureTransformersPipeline(config, input.model)
+      const prompt = resolvePrompt(input)
+      const output = await pipeline(prompt, {
+        max_new_tokens: generation.maxNewTokens,
+        temperature: generation.temperature,
+        top_p: generation.topP,
+        do_sample: generation.doSample,
+        repetition_penalty: generation.repetitionPenalty,
+      })
+
+      const text = extractGeneratedText(prompt, output)
+
+      return {
+        text,
+        model: model.id,
+        runtime: 'transformers-wasm' as const,
+        provider: 'transformers.js-wasm' as const,
+        generation,
+        metrics: {
+          latencyMs: Number((performance.now() - start).toFixed(2)),
+          promptLength: prompt.length,
+          completionLength: text.length,
+        },
+        assistantMessage: {
+          role: 'assistant',
+          content: text,
+        },
+      }
+    },
+    async (): Promise<EdgeAIGenerateResponse> => {
+      const fallback = await runRemoteInference(config, input)
+      return {
+        ...fallback,
+        fellBackToRemote: true,
+      }
+    },
+  )
+}
+
+export async function createEdgeAIChatCompletion(
+  config: EdgeAIServerRuntimeConfig,
+  input: EdgeAIChatCompletionRequest,
+): Promise<EdgeAIChatCompletionResponse> {
+  const prompt = resolvePromptFromMessages(input.messages)
+  const generation: EdgeAIGenerateRequest['generation'] = {
+    ...(typeof input.max_tokens === 'number' ? { maxNewTokens: input.max_tokens } : {}),
+    ...(typeof input.temperature === 'number' ? { temperature: input.temperature } : {}),
+    ...(typeof input.top_p === 'number' ? { topP: input.top_p } : {}),
+  }
+
+  const result = await generateEdgeAIText(config, {
+    prompt,
+    remote: input.remote,
+    model: input.model,
+    messages: input.messages,
+    reasoning: input.reasoning,
+    remoteBody: input.remoteBody,
+    generation,
   })
 
-  const text = extractGeneratedText(input.prompt, output)
-
-  return {
-    text,
-    model: model.id,
-    runtime: 'transformers-wasm',
-    provider: 'transformers.js-wasm',
-    generation,
-    metrics: {
-      latencyMs: Number((performance.now() - start).toFixed(2)),
-      promptLength: input.prompt.length,
-      completionLength: text.length,
-    },
-  }
+  return toChatCompletionResponse(input, result)
 }

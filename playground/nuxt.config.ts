@@ -2,22 +2,25 @@ export default defineNuxtConfig({
   modules: ['nuxt-edge-ai'],
   devtools: { enabled: true },
   compatibilityDate: '2026-03-16',
+  vite: {
+    optimizeDeps: {
+      include: [
+        '@vue/devtools-core',
+        '@vue/devtools-kit',
+      ],
+    },
+  },
   edgeAI: {
     routeBase: '/api/edge-ai',
-    runtime: 'transformers-wasm',
     cacheDir: './.cache/nuxt-edge-ai-playground',
-    model: {
-      id: 'Xenova/distilgpt2',
-      task: 'text-generation',
-      allowRemote: true,
-      dtype: 'q8',
-      generation: {
-        maxNewTokens: 80,
-        temperature: 0.7,
-        topP: 0.92,
-        doSample: true,
-        repetitionPenalty: 1.05,
-      },
+    provider: 'local',
+    preset: 'distilgpt2',
+    remote: {
+      enabled: true,
+      fallback: true,
+      baseUrl: process.env.NUXT_EDGE_AI_REMOTE_BASE_URL,
+      apiKey: process.env.NUXT_EDGE_AI_REMOTE_API_KEY,
+      model: process.env.NUXT_EDGE_AI_REMOTE_MODEL,
     },
   },
 })
