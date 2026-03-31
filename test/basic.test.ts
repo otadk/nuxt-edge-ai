@@ -7,7 +7,23 @@ import type {
   EdgeAIGenerateResponse,
   EdgeAIHealthResponse,
   EdgeAIPullResponse,
+  StreamPart,
 } from '../src/runtime/types'
+
+async function collectSSEParts(response: Response) {
+  const body = await response.text()
+  const parts = body
+    .split('\n')
+    .filter(line => line.startsWith('data: '))
+    .map(line => line.slice(6))
+
+  return {
+    body,
+    jsonParts: parts
+      .filter(part => part !== '[DONE]')
+      .map(part => JSON.parse(part) as StreamPart | Record<string, unknown>),
+  }
+}
 
 describe('ssr', async () => {
   await setup({
@@ -84,5 +100,58 @@ describe('ssr', async () => {
 
     expect(completion.object).toBe('chat.completion')
     expect(String(completion.choices[0]?.message.content)).toContain('Prompt received')
+  })
+
+  it('serves an AI SDK-compatible data stream when the request prefers SSE', async () => {
+    const response = await fetch(url('/api/edge-ai/chat/completions'), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'accept': 'text/event-stream',
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'user',
+            content: 'Stream a mock response.',
+          },
+        ],
+      }),
+    })
+
+    expect(response.headers.get('x-vercel-ai-ui-message-stream')).toBe('v1')
+
+    const { body, jsonParts } = await collectSSEParts(response)
+    expect(body).toContain('data: [DONE]')
+    expect(jsonParts.some(part => 'type' in part && part.type === 'start')).toBe(true)
+    expect(jsonParts.some(part => 'type' in part && part.type === 'text-start')).toBe(true)
+    expect(jsonParts.some(part => 'type' in part && part.type === 'text-delta')).toBe(true)
+    expect(jsonParts.some(part => 'type' in part && part.type === 'text-end')).toBe(true)
+    expect(jsonParts.some(part => 'type' in part && part.type === 'finish')).toBe(true)
+  })
+
+  it('serves OpenAI-style SSE chunks when stream=true is requested directly', async () => {
+    const response = await fetch(url('/api/edge-ai/chat/completions'), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'accept': 'text/event-stream',
+      },
+      body: JSON.stringify({
+        stream: true,
+        messages: [
+          {
+            role: 'user',
+            content: 'Return an OpenAI style stream.',
+          },
+        ],
+      }),
+    })
+
+    expect(response.headers.get('x-vercel-ai-ui-message-stream')).toBeNull()
+
+    const { body, jsonParts } = await collectSSEParts(response)
+    expect(body).toContain('data: [DONE]')
+    expect(jsonParts.some(part => part && 'object' in part && part.object === 'chat.completion.chunk')).toBe(true)
   })
 })

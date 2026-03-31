@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import type {
   EdgeAIChatCompletionRequest,
   EdgeAIChatCompletionResponse,
+  EdgeAIChatCompletionStreamResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIGenerationOptions,
@@ -14,6 +15,13 @@ import type {
   EdgeAIRemoteConfig,
   EdgeAIServerRuntimeConfig,
   EdgeAIPullResponse,
+  StreamPart,
+  TextDeltaPart,
+  StartPart,
+  FinishPart,
+  ErrorPart,
+  TextEndPart,
+  TextStartPart,
 } from '../../types'
 
 interface TransformersRuntimeModule {
@@ -92,6 +100,11 @@ interface RemoteChatCompletionResponse {
       [key: string]: unknown
     }
     text?: string
+    delta?: {
+      role?: string
+      content?: string
+    }
+    finish_reason?: string | null
   }>
   output_text?: string
   output?: Array<{
@@ -533,6 +546,54 @@ function toChatCompletionResponse(
   }
 }
 
+function toChatCompletionStreamChunk(
+  id: string,
+  model: string,
+  delta: Partial<EdgeAIRemoteMessage>,
+  finishReason: 'stop' | null = null,
+): EdgeAIChatCompletionStreamResponse {
+  return {
+    id,
+    object: 'chat.completion.chunk',
+    created: Math.floor(Date.now() / 1000),
+    model,
+    choices: [
+      {
+        index: 0,
+        delta,
+        finish_reason: finishReason,
+      },
+    ],
+  }
+}
+
+// SSE formatting helpers
+function formatSSE(data: string): string {
+  return `data: ${data}\n\n`
+}
+
+function formatStreamPart(part: StreamPart): string {
+  return formatSSE(JSON.stringify(part))
+}
+
+// Data Stream Protocol helpers (AI SDK compatible)
+function createDataStreamHeader(): Record<string, string> {
+  return {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-cache, no-store, must-revalidate',
+    'connection': 'keep-alive',
+    'x-vercel-ai-ui-message-stream': 'v1',
+  }
+}
+
+function createOpenAIStreamHeader(): Record<string, string> {
+  return {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-cache, no-store, must-revalidate',
+    'connection': 'keep-alive',
+  }
+}
+
 function runMockInference(config: EdgeAIServerRuntimeConfig, input: EdgeAIGenerateRequest): EdgeAIGenerateResponse {
   const generation = resolveGenerationOptions(config.model.generation, input.generation)
   const prompt = resolvePrompt(input)
@@ -668,6 +729,108 @@ async function runRemoteInference(
       completionLength: text.length,
     },
     assistantMessage,
+  }
+}
+
+async function* runRemoteInferenceStream(
+  config: EdgeAIServerRuntimeConfig,
+  input: EdgeAIGenerateRequest,
+): AsyncGenerator<StreamPart, void, unknown> {
+  const generation = resolveGenerationOptions(config.model.generation, input.generation)
+  const apiKey = resolveRemoteApiKey(config.remote)
+
+  if (!apiKey && !config.remote.headers?.Authorization) {
+    throw new Error('Missing remote API key. Set edgeAI.remote.apiKey.')
+  }
+
+  const messageId = `chatcmpl_${Date.now().toString(36)}`
+  const model = input.model || config.remote.model
+
+  // Start message
+  yield { type: 'start', messageId } as StartPart
+
+  try {
+    const body = {
+      model,
+      messages: buildRemoteMessages(config, input),
+      temperature: generation.temperature,
+      top_p: generation.topP,
+      max_tokens: generation.maxNewTokens,
+      stream: true,
+      ...(input.reasoning ? { reasoning: input.reasoning } : {}),
+      ...(input.remoteBody || {}),
+    }
+
+    const response = await fetch(joinUrl(config.remote.baseUrl, config.remote.path), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+        ...config.remote.headers,
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Remote inference failed with ${response.status}: ${errorText}`)
+    }
+
+    if (!response.body) {
+      throw new Error('Remote response body is empty')
+    }
+
+    // Parse SSE stream from remote
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data: ')) continue
+
+          const data = trimmed.slice(6)
+          if (data === '[DONE]') {
+            yield { type: 'finish', messageId } as FinishPart
+            return
+          }
+
+          try {
+            const chunk = JSON.parse(data) as RemoteChatCompletionResponse
+            const delta = chunk.choices?.[0]?.delta
+            if (delta?.content) {
+              yield {
+                type: 'text-delta',
+                id: messageId,
+                delta: delta.content,
+              } as TextDeltaPart
+            }
+          }
+          catch {
+            // Ignore parse errors for malformed chunks
+          }
+        }
+      }
+    }
+    finally {
+      reader.releaseLock()
+    }
+
+    yield { type: 'finish', messageId } as FinishPart
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    yield { type: 'error', errorText: errorMessage } as ErrorPart
+    throw error
   }
 }
 
@@ -843,6 +1006,54 @@ export async function generateEdgeAIText(
   )
 }
 
+// Stream text generation with efficient batching
+async function* generateEdgeAITextStream(
+  config: EdgeAIServerRuntimeConfig,
+  input: EdgeAIGenerateRequest,
+): AsyncGenerator<StreamPart, void, unknown> {
+  const messageId = `chatcmpl_${Date.now().toString(36)}`
+
+  // Start message immediately so client knows stream is alive
+  yield { type: 'start', messageId } as StartPart
+
+  try {
+    // For local provider, we need to generate the full text first
+    // because Transformers.js doesn't support true token-by-token streaming yet
+    // Send a heartbeat to keep connection alive during model loading/inference
+    const startTime = Date.now()
+
+    const result = await generateEdgeAIText(config, input)
+    const text = result.text
+
+    // Log performance metrics
+    const duration = Date.now() - startTime
+    console.log(`[EdgeAI] Generated ${text.length} chars in ${duration}ms`)
+
+    // Stream in larger chunks for better performance
+    const chunkSize = 16 // Characters per chunk
+    for (let i = 0; i < text.length; i += chunkSize) {
+      const chunk = text.slice(i, i + chunkSize)
+      yield {
+        type: 'text-delta',
+        id: messageId,
+        delta: chunk,
+      } as TextDeltaPart
+
+      // Minimal yield to prevent blocking event loop
+      if (i % 64 === 0 && i < text.length - chunkSize) {
+        await new Promise(resolve => setTimeout(resolve, 0))
+      }
+    }
+
+    yield { type: 'finish', messageId } as FinishPart
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('[EdgeAI] Stream error:', errorMessage)
+    yield { type: 'error', errorText: errorMessage } as ErrorPart
+  }
+}
+
 export async function createEdgeAIChatCompletion(
   config: EdgeAIServerRuntimeConfig,
   input: EdgeAIChatCompletionRequest,
@@ -865,4 +1076,176 @@ export async function createEdgeAIChatCompletion(
   })
 
   return toChatCompletionResponse(input, result)
+}
+
+// Create a streaming chat completion
+export function createEdgeAIChatCompletionStream(
+  config: EdgeAIServerRuntimeConfig,
+  input: EdgeAIChatCompletionRequest,
+): { stream: ReadableStream<string>, headers: Record<string, string> } {
+  const prompt = resolvePromptFromMessages(input.messages)
+  const generation: EdgeAIGenerateRequest['generation'] = {
+    ...(typeof input.max_tokens === 'number' ? { maxNewTokens: input.max_tokens } : {}),
+    ...(typeof input.temperature === 'number' ? { temperature: input.temperature } : {}),
+    ...(typeof input.top_p === 'number' ? { topP: input.top_p } : {}),
+  }
+
+  const streamInput: EdgeAIGenerateRequest = {
+    prompt,
+    remote: input.remote,
+    model: input.model,
+    messages: input.messages,
+    reasoning: input.reasoning,
+    remoteBody: input.remoteBody,
+    generation,
+    stream: true,
+  }
+
+  // Determine which stream generator to use
+  let generator: AsyncGenerator<StreamPart, void, unknown>
+
+  if (config.provider === 'mock') {
+    // Mock streaming
+    generator = (async function* () {
+      const messageId = `chatcmpl_${Date.now().toString(36)}`
+      yield { type: 'start', messageId } as StartPart
+      const text = `Mock response: ${prompt.slice(0, 50)}...`
+      for (const char of text) {
+        yield { type: 'text-delta', id: messageId, delta: char } as TextDeltaPart
+        await new Promise(r => setTimeout(r, 10))
+      }
+      yield { type: 'finish', messageId } as FinishPart
+    })()
+  }
+  else if (config.provider === 'remote' || shouldForceRemote(config, streamInput)) {
+    // Remote streaming
+    generator = runRemoteInferenceStream(config, streamInput)
+  }
+  else {
+    // Local streaming
+    generator = generateEdgeAITextStream(config, streamInput)
+  }
+
+  // Create ReadableStream
+  const stream = new ReadableStream<string>({
+    async start(controller) {
+      const openTextIds = new Set<string>()
+
+      try {
+        for await (const part of generator) {
+          if (part.type === 'text-delta') {
+            const textPart = part as TextDeltaPart
+            if (!openTextIds.has(textPart.id)) {
+              openTextIds.add(textPart.id)
+              controller.enqueue(formatStreamPart({
+                type: 'text-start',
+                id: textPart.id,
+              } as TextStartPart))
+            }
+          }
+
+          if (part.type === 'finish') {
+            for (const id of openTextIds) {
+              controller.enqueue(formatStreamPart({
+                type: 'text-end',
+                id,
+              } as TextEndPart))
+            }
+            openTextIds.clear()
+          }
+
+          controller.enqueue(formatStreamPart(part))
+        }
+        controller.enqueue(formatSSE('[DONE]'))
+        controller.close()
+      }
+      catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        controller.enqueue(formatStreamPart({ type: 'error', errorText: errorMessage } as ErrorPart))
+        controller.enqueue(formatSSE('[DONE]'))
+        controller.close()
+      }
+    },
+    async cancel() {
+      // Generator cleanup is handled by async iteration
+    },
+  })
+
+  return {
+    stream,
+    headers: createDataStreamHeader(),
+  }
+}
+
+// Legacy OpenAI-style SSE stream (for broader compatibility)
+export function createEdgeAIChatCompletionOpenAIStream(
+  config: EdgeAIServerRuntimeConfig,
+  input: EdgeAIChatCompletionRequest,
+): { stream: ReadableStream<string>, headers: Record<string, string> } {
+  const model = input.model || (config.provider === 'remote' ? config.remote.model : config.model.id)
+  const messageId = `chatcmpl_${Date.now().toString(36)}`
+  let sentDone = false
+
+  // Create a stream that yields OpenAI-style chunks
+  const { stream } = createEdgeAIChatCompletionStream(config, input)
+
+  // Transform to OpenAI format
+  const transformStream = new TransformStream<string, string>({
+    transform(chunk, controller) {
+      // Parse the data stream part
+      if (chunk.startsWith('data: ')) {
+        const data = chunk.slice(6).trim()
+        if (data === '[DONE]') {
+          if (!sentDone) {
+            controller.enqueue('data: [DONE]\n\n')
+            sentDone = true
+          }
+          return
+        }
+
+        try {
+          const part = JSON.parse(data) as StreamPart
+          if (part.type === 'text-delta') {
+            const openaiChunk = toChatCompletionStreamChunk(
+              messageId,
+              model,
+              { role: 'assistant', content: (part as TextDeltaPart).delta },
+              null,
+            )
+            controller.enqueue(`data: ${JSON.stringify(openaiChunk)}\n\n`)
+          }
+          else if (part.type === 'finish') {
+            const openaiChunk = toChatCompletionStreamChunk(
+              messageId,
+              model,
+              {},
+              'stop',
+            )
+            controller.enqueue(`data: ${JSON.stringify(openaiChunk)}\n\n`)
+            if (!sentDone) {
+              controller.enqueue('data: [DONE]\n\n')
+              sentDone = true
+            }
+          }
+          else if (part.type === 'error') {
+            controller.enqueue(`data: ${JSON.stringify({ error: (part as ErrorPart).errorText })}\n\n`)
+          }
+        }
+        catch {
+          // Pass through unparseable chunks
+          controller.enqueue(chunk)
+        }
+      }
+      else {
+        controller.enqueue(chunk)
+      }
+    },
+  })
+
+  const transformedStream = stream.pipeThrough(transformStream)
+
+  return {
+    stream: transformedStream,
+    headers: createOpenAIStreamHeader(),
+  }
 }

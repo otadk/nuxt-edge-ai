@@ -1,1118 +1,1524 @@
 <template>
-  <main class="app-shell">
-    <div class="page-glow page-glow-top" />
-    <div class="page-glow page-glow-bottom" />
+  <div class="app">
+    <!-- Background effects -->
+    <div class="bg-gradient" />
+    <div class="bg-glow top" />
+    <div class="bg-glow bottom" />
 
-    <div class="playground-shell">
-      <header class="top-bar">
-        <div class="bar-brand">
-          <p class="eyebrow">
-            nuxt-edge-ai
-          </p>
-          <div class="brand-row">
-            <h1>Playground</h1>
-            <span class="subtle-pill">{{ mode }}</span>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <div class="brand">
+          <div class="logo">
+            <svg
+              viewBox="0 0 32 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M16 2L4 9V23L16 30L28 23V9L16 2Z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M16 16L22 12V20L16 24L10 20V12L16 16Z"
+                fill="currentColor"
+              />
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>nuxt-edge-ai</h1>
+            <span class="version">v0.1.4</span>
           </div>
         </div>
 
-        <div class="bar-actions">
-          <span
-            class="health-pill"
+        <div class="header-actions">
+          <!-- Status Badge -->
+          <div
+            class="status-badge"
             :class="{ ready: health?.engine.ready }"
           >
-            {{ health?.engine.ready ? 'Engine ready' : 'Engine cold' }}
-          </span>
+            <span class="status-dot" />
+            <span class="status-text">{{ health?.engine.ready ? 'Ready' : 'Cold Start' }}</span>
+          </div>
 
+          <!-- Settings Dropdown -->
           <details
-            ref="runtimeMenu"
-            class="menu"
+            ref="settingsRef"
+            class="dropdown"
           >
-            <summary class="menu-trigger">
-              Runtime
+            <summary class="dropdown-trigger">
+              <svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              Settings
             </summary>
-
-            <div class="menu-panel">
-              <div class="menu-section">
-                <p class="menu-label">
-                  Inference mode
-                </p>
-
-                <div
-                  class="mode-switch"
-                  role="tablist"
-                  aria-label="Inference mode"
-                >
+            <div class="dropdown-panel settings-panel">
+              <div class="panel-section">
+                <h3>Inference Mode</h3>
+                <div class="mode-selector">
                   <button
                     type="button"
-                    class="mode-tab"
+                    class="mode-option"
                     :class="{ active: mode === 'local' }"
                     @click="setMode('local')"
                   >
-                    <span>Local</span>
-                    <small>WASM runtime</small>
+                    <div class="mode-icon">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <rect
+                          x="2"
+                          y="2"
+                          width="20"
+                          height="8"
+                          rx="2"
+                          ry="2"
+                        />
+                        <rect
+                          x="2"
+                          y="14"
+                          width="20"
+                          height="8"
+                          rx="2"
+                          ry="2"
+                        />
+                      </svg>
+                    </div>
+                    <div class="mode-info">
+                      <span class="mode-name">Local</span>
+                      <span class="mode-desc">WASM Runtime</span>
+                    </div>
                   </button>
                   <button
                     type="button"
-                    class="mode-tab"
+                    class="mode-option"
                     :class="{ active: mode === 'remote' }"
                     @click="setMode('remote')"
                   >
-                    <span>Remote</span>
-                    <small>OpenAI-compatible</small>
+                    <div class="mode-icon">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
+                      </svg>
+                    </div>
+                    <div class="mode-info">
+                      <span class="mode-name">Remote</span>
+                      <span class="mode-desc">OpenAI API</span>
+                    </div>
                   </button>
                 </div>
               </div>
 
-              <label
-                v-if="mode === 'remote'"
-                class="reasoning-toggle"
-              >
-                <div>
-                  <strong>Reasoning traces</strong>
-                  <span>Include reasoning details when available.</span>
-                </div>
-                <input
-                  v-model="reasoningEnabled"
-                  type="checkbox"
+              <div class="panel-section">
+                <label class="toggle-label">
+                  <div class="toggle-text">
+                    <span class="toggle-title">Stream Response</span>
+                    <span class="toggle-desc">Typewriter effect</span>
+                  </div>
+                  <input
+                    v-model="streamingEnabled"
+                    type="checkbox"
+                    class="toggle-input"
+                  >
+                </label>
+                <label
+                  v-if="mode === 'remote'"
+                  class="toggle-label"
                 >
-              </label>
+                  <div class="toggle-text">
+                    <span class="toggle-title">Reasoning</span>
+                    <span class="toggle-desc">Show reasoning traces</span>
+                  </div>
+                  <input
+                    v-model="reasoningEnabled"
+                    type="checkbox"
+                    class="toggle-input"
+                  >
+                </label>
+              </div>
 
-              <dl class="menu-meta">
-                <div>
-                  <dt>runtime</dt>
-                  <dd>{{ edgeAI.runtime }}</dd>
+              <div class="panel-section info-grid">
+                <div class="info-item">
+                  <span class="info-label">Runtime</span>
+                  <span class="info-value">{{ edgeAI.runtime }}</span>
                 </div>
-                <div>
-                  <dt>model</dt>
-                  <dd>{{ activeModel }}</dd>
+                <div class="info-item">
+                  <span class="info-label">Model</span>
+                  <span class="info-value">{{ activeModel }}</span>
                 </div>
-                <div>
-                  <dt>ready</dt>
-                  <dd>{{ health?.engine.ready ? 'yes' : 'no' }}</dd>
+                <div class="info-item">
+                  <span class="info-label">Fallback</span>
+                  <span class="info-value">{{ edgeAI.remoteFallback ? 'On' : 'Off' }}</span>
                 </div>
-                <div>
-                  <dt>fallback</dt>
-                  <dd>{{ edgeAI.remoteFallback ? 'on' : 'off' }}</dd>
-                </div>
-              </dl>
-            </div>
-          </details>
+              </div>
 
-          <details
-            ref="actionsMenu"
-            class="menu"
-          >
-            <summary class="menu-trigger">
-              Actions
-            </summary>
-
-            <div class="menu-panel action-panel">
-              <button
-                class="menu-button"
-                :disabled="pending"
-                @click="handleWarmup"
-              >
-                {{ pending === 'pull' ? 'Warming local model...' : 'Warm up local model' }}
-              </button>
-              <button
-                class="menu-button"
-                :disabled="pending"
-                @click="handleRefreshHealth"
-              >
-                Refresh health
-              </button>
-              <button
-                class="menu-button"
-                :disabled="pending"
-                @click="handleClearConversation"
-              >
-                Clear conversation
-              </button>
+              <div class="panel-actions">
+                <button
+                  class="action-btn"
+                  :disabled="pending === 'pull'"
+                  @click="warmup"
+                >
+                  <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                  </svg>
+                  {{ pending === 'pull' ? 'Warming...' : 'Warm Up' }}
+                </button>
+                <button
+                  class="action-btn secondary"
+                  @click="clearChat"
+                >
+                  <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                  Clear
+                </button>
+              </div>
             </div>
           </details>
         </div>
       </header>
 
-      <section
-        class="chat-stage"
-        :class="{ engaged: isChatActive }"
-      >
+      <!-- Chat Area -->
+      <main class="chat-container">
         <div
-          class="chat-frame panel"
-          :class="{ engaged: isChatActive }"
+          v-if="!hasMessages"
+          class="welcome"
         >
-          <section
-            v-if="isChatActive"
-            class="chat-scroll"
-          >
-            <article
-              v-for="message in conversation"
-              :key="message.id"
-              class="message-row"
-              :class="`role-${message.role}`"
+          <div class="welcome-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
             >
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <h2>Local-first AI</h2>
+          <p>Powered by Transformers.js + ONNX Runtime WASM</p>
+          <div class="quick-starts">
+            <button
+              v-for="prompt in quickPrompts"
+              :key="prompt"
+              class="quick-prompt"
+              @click="useQuickPrompt(prompt)"
+            >
+              {{ prompt }}
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-else
+          class="messages"
+        >
+          <div
+            v-for="message in messages"
+            :key="message.id"
+            class="message"
+            :class="[message.role, { streaming: message.isStreaming }]"
+          >
+            <div class="message-avatar">
               <div
-                v-if="message.role === 'assistant'"
                 class="avatar"
+                :class="message.role"
               >
-                AI
+                <svg
+                  v-if="message.role === 'assistant'"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                <svg
+                  v-else
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle
+                    cx="12"
+                    cy="7"
+                    r="4"
+                  />
+                </svg>
               </div>
-
-              <div class="message-card">
-                <div class="message-meta">
-                  <span class="message-role">{{ message.role === 'user' ? 'You' : 'Assistant' }}</span>
-                  <span>{{ message.model || activeModel }}</span>
-                  <span v-if="message.fellBackToRemote">fallback</span>
-                </div>
-
+            </div>
+            <div class="message-content">
+              <div class="message-header">
+                <span class="message-author">{{ message.role === 'user' ? 'You' : 'AI' }}</span>
+                <span
+                  v-if="message.model"
+                  class="message-model"
+                >{{ message.model }}</span>
+                <span
+                  v-if="message.fellBackToRemote"
+                  class="badge fallback"
+                >fallback</span>
+                <span
+                  v-if="message.isStreaming"
+                  class="badge streaming"
+                >streaming</span>
+              </div>
+              <div class="message-body">
                 <p class="message-text">
                   {{ message.content }}
                 </p>
-
-                <details
-                  v-if="message.reasoningDetails"
-                  class="reasoning-block"
-                >
-                  <summary>Reasoning details</summary>
+                <span
+                  v-if="message.isStreaming"
+                  class="cursor"
+                />
+              </div>
+              <div
+                v-if="message.reasoningDetails"
+                class="reasoning"
+              >
+                <details>
+                  <summary>Reasoning</summary>
                   <pre>{{ message.reasoningDetails }}</pre>
                 </details>
-
-                <p
-                  v-if="message.error"
-                  class="message-error"
+              </div>
+              <div
+                v-if="message.error"
+                class="message-error"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
                 >
-                  {{ message.error }}
-                </p>
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                  />
+                  <line
+                    x1="12"
+                    y1="8"
+                    x2="12"
+                    y2="12"
+                  />
+                  <line
+                    x1="12"
+                    y1="16"
+                    x2="12.01"
+                    y2="16"
+                  />
+                </svg>
+                {{ message.error }}
               </div>
-            </article>
-
-            <article
-              v-if="pending === 'generate'"
-              class="message-row role-assistant"
-            >
-              <div class="avatar">
-                AI
-              </div>
-              <div class="message-card pending-card">
-                <div class="typing-dots">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
-            </article>
-          </section>
-
-          <section
-            class="composer-shell"
-            :class="{ engaged: isChatActive }"
-          >
-            <div
-              v-if="errorMessage"
-              class="banner error-banner"
-            >
-              {{ errorMessage }}
             </div>
-
-            <div
-              v-if="pullResult"
-              class="banner info-banner"
-            >
-              Local warmup {{ pullResult.loadedNow ? 'loaded the model just now' : 'completed' }}.
-            </div>
-
-            <form
-              class="composer"
-              @submit.prevent="run"
-            >
-              <textarea
-                ref="composerInput"
-                v-model="prompt"
-                class="composer-input"
-                rows="1"
-                placeholder="Message nuxt-edge-ai..."
-                @input="resizeComposer"
-                @keydown.enter.exact.prevent="run"
-              />
-
-              <div class="composer-footer">
-                <label class="token-control">
-                  <span>Max tokens</span>
-                  <input
-                    v-model.number="maxNewTokens"
-                    type="number"
-                    min="8"
-                    max="256"
-                    step="8"
-                  >
-                </label>
-
-                <button
-                  class="primary-button"
-                  type="submit"
-                  :disabled="pending === 'generate' || !prompt.trim()"
-                >
-                  {{ pending === 'generate' ? 'Sending...' : 'Send message' }}
-                </button>
-              </div>
-            </form>
-          </section>
+          </div>
         </div>
-      </section>
+      </main>
+
+      <!-- Input Area -->
+      <div class="input-area">
+        <div
+          v-if="errorMessage"
+          class="error-banner"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+            />
+            <line
+              x1="12"
+              y1="8"
+              x2="12"
+              y2="12"
+            />
+            <line
+              x1="12"
+              y1="16"
+              x2="12.01"
+              y2="16"
+            />
+          </svg>
+          {{ errorMessage }}
+        </div>
+
+        <form
+          class="input-form"
+          @submit.prevent="sendMessage"
+        >
+          <div class="input-wrapper">
+            <textarea
+              ref="inputRef"
+              v-model="input"
+              :placeholder="isStreaming ? 'AI is thinking...' : 'Message nuxt-edge-ai...'"
+              :disabled="isStreaming"
+              rows="1"
+              @keydown.enter.prevent="sendMessage"
+              @input="autoResize"
+            />
+            <div class="input-actions">
+              <div class="token-slider">
+                <label>Max tokens: {{ maxTokens }}</label>
+                <input
+                  v-model.number="maxTokens"
+                  type="range"
+                  min="32"
+                  max="512"
+                  step="32"
+                >
+              </div>
+              <button
+                v-if="isStreaming"
+                type="button"
+                class="btn stop"
+                @click="stopStreaming"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <rect
+                    x="6"
+                    y="6"
+                    width="12"
+                    height="12"
+                    rx="2"
+                  />
+                </svg>
+                Stop
+              </button>
+              <button
+                v-else
+                type="submit"
+                class="btn send"
+                :disabled="!input.trim()"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <line
+                    x1="22"
+                    y1="2"
+                    x2="11"
+                    y2="13"
+                  />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
-  </main>
+  </div>
 </template>
 
 <script setup lang="ts">
-interface ConversationItem {
+interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
   model?: string
   fellBackToRemote?: boolean
+  isStreaming?: boolean
   reasoningDetails?: unknown
   error?: string
 }
 
 const edgeAI = useEdgeAI()
-const client = edgeAI.client
-const composerInput = ref<HTMLTextAreaElement | null>(null)
-const runtimeMenu = ref<HTMLDetailsElement | null>(null)
-const actionsMenu = ref<HTMLDetailsElement | null>(null)
+const inputRef = ref<HTMLTextAreaElement>()
+const settingsRef = ref<HTMLDetailsElement>()
 
+// State
 const mode = ref<'local' | 'remote'>('local')
-const prompt = ref('')
-const maxNewTokens = ref(160)
+const input = ref('')
+const maxTokens = ref(160)
+const streamingEnabled = ref(true)
 const reasoningEnabled = ref(true)
 const pending = ref<false | 'pull' | 'generate'>(false)
 const errorMessage = ref('')
-const pullResult = ref<Awaited<ReturnType<typeof edgeAI.pull>> | null>(null)
-const conversation = ref<ConversationItem[]>([])
+const messages = ref<Message[]>([])
 
-const { data: health, refresh: refreshHealth } = await useAsyncData('edge-ai-health', () => edgeAI.health())
+const { data: health } = await useAsyncData('health', () => edgeAI.health())
 
 const activeModel = computed(() => mode.value === 'remote' ? edgeAI.remoteModel : edgeAI.defaultModel)
-const isChatActive = computed(() => conversation.value.length > 0)
+const hasMessages = computed(() => messages.value.length > 0)
+const isStreaming = computed(() => messages.value.some(m => m.isStreaming))
 
-function closeMenu(menu: { value: HTMLDetailsElement | null }) {
-  if (menu.value) {
-    menu.value.open = false
-  }
+const quickPrompts = [
+  'Write a poem about AI',
+  'Explain quantum computing',
+  'What is local-first software?',
+  'How does WASM work?',
+]
+
+function useQuickPrompt(prompt: string) {
+  input.value = prompt
+  sendMessage()
 }
 
-function setMode(nextMode: 'local' | 'remote') {
-  mode.value = nextMode
-  closeMenu(runtimeMenu)
-}
-
-async function handleRefreshHealth() {
-  closeMenu(actionsMenu)
-  await refreshHealth()
-}
-
-function handleClearConversation() {
-  closeMenu(actionsMenu)
-  clearConversation()
-}
-
-async function handleWarmup() {
-  closeMenu(actionsMenu)
-  await warmup()
-}
-
-function normalizeMessageContent(content: unknown) {
-  if (typeof content === 'string') {
-    return content
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => {
-        if (typeof item === 'string') {
-          return item
-        }
-
-        if (item && typeof item === 'object' && 'text' in item) {
-          return String(item.text ?? '')
-        }
-
-        return ''
-      })
-      .join('')
-  }
-
-  if (content == null) {
-    return ''
-  }
-
-  return String(content)
-}
-
-function scrollToBottom() {
-  nextTick(() => {
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior: 'auto',
-    })
-  })
-}
-
-function focusComposer() {
-  nextTick(() => {
-    composerInput.value?.focus()
-  })
-}
-
-function resizeComposer() {
-  nextTick(() => {
-    const textarea = composerInput.value
-    if (!textarea) {
-      return
-    }
-
-    textarea.style.height = '0px'
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`
-  })
-}
-
-function toRemoteMessages() {
-  return conversation.value.map(message => ({
-    role: message.role,
-    content: message.content,
-    ...(message.reasoningDetails ? { reasoning_details: message.reasoningDetails } : {}),
-  }))
-}
-
-function resetConversation() {
+function setMode(newMode: 'local' | 'remote') {
+  mode.value = newMode
+  messages.value = []
   errorMessage.value = ''
-  pullResult.value = null
-  conversation.value = []
-  scrollToBottom()
 }
 
-function clearConversation() {
-  resetConversation()
-  focusComposer()
+function autoResize() {
+  const el = inputRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, 200)}px`
 }
 
-watch(mode, () => {
-  resetConversation()
-  focusComposer()
-})
+function clearChat() {
+  messages.value = []
+  errorMessage.value = ''
+  if (settingsRef.value) {
+    settingsRef.value.open = false
+  }
+}
 
 async function warmup() {
   pending.value = 'pull'
   errorMessage.value = ''
   try {
-    pullResult.value = await edgeAI.pull()
-    await refreshHealth()
+    await edgeAI.pull()
   }
-  catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : String(error)
+  catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : String(err)
   }
   finally {
     pending.value = false
   }
 }
 
-async function run() {
-  const text = prompt.value.trim()
-  if (!text || pending.value) {
-    return
+function stopStreaming() {
+  edgeAI.stop()
+}
+
+async function sendMessage() {
+  const text = input.value.trim()
+  if (!text || isStreaming.value) return
+
+  // Add user message
+  messages.value.push({
+    id: crypto.randomUUID(),
+    role: 'user',
+    content: text,
+  })
+
+  input.value = ''
+  nextTick(autoResize)
+
+  // Add assistant placeholder
+  const assistantId = crypto.randomUUID()
+  const assistantMsg: Message = {
+    id: assistantId,
+    role: 'assistant',
+    content: '',
+    model: activeModel.value,
+    isStreaming: streamingEnabled.value,
   }
+  messages.value.push(assistantMsg)
 
   pending.value = 'generate'
   errorMessage.value = ''
 
-  conversation.value.push({
-    id: crypto.randomUUID(),
-    role: 'user',
-    content: text,
-    model: activeModel.value,
-  })
-
-  prompt.value = ''
-  resizeComposer()
-  scrollToBottom()
-
   try {
-    const completion = await client.chat.completions.create({
-      model: activeModel.value,
-      remote: mode.value === 'remote',
-      messages: toRemoteMessages(),
-      max_tokens: maxNewTokens.value,
-      reasoning: mode.value === 'remote' && reasoningEnabled.value ? { enabled: true } : undefined,
-    })
+    const history = messages.value
+      .filter(m => !m.isStreaming && m.id !== assistantId)
+      .map(m => ({ role: m.role, content: m.content }))
 
-    const assistant = completion.choices[0]?.message
-    conversation.value.push({
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: normalizeMessageContent(assistant?.content),
-      model: completion.model,
-      fellBackToRemote: completion.fellBackToRemote,
-      reasoningDetails: assistant?.reasoning_details,
-    })
-
-    await refreshHealth()
+    if (streamingEnabled.value) {
+      for await (const token of edgeAI.streamChatCompletionsGenerator({
+        model: activeModel.value,
+        remote: mode.value === 'remote',
+        messages: history,
+        max_tokens: maxTokens.value,
+        reasoning: mode.value === 'remote' && reasoningEnabled.value ? { enabled: true } : undefined,
+      })) {
+        assistantMsg.content += token
+      }
+      assistantMsg.isStreaming = false
+    }
+    else {
+      const res = await edgeAI.client.chat.completions.create({
+        model: activeModel.value,
+        remote: mode.value === 'remote',
+        messages: history,
+        max_tokens: maxTokens.value,
+        reasoning: mode.value === 'remote' && reasoningEnabled.value ? { enabled: true } : undefined,
+      })
+      assistantMsg.content = String(res.choices[0]?.message?.content ?? '')
+      assistantMsg.fellBackToRemote = res.fellBackToRemote
+      assistantMsg.isStreaming = false
+    }
   }
-  catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    errorMessage.value = message
-    conversation.value.push({
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: 'The request failed. Check the banner below for the upstream response.',
-      model: activeModel.value,
-      error: message,
-    })
+  catch (err) {
+    if ((err as Error).name !== 'AbortError') {
+      assistantMsg.error = err instanceof Error ? err.message : String(err)
+      errorMessage.value = assistantMsg.error
+    }
+    assistantMsg.isStreaming = false
   }
   finally {
     pending.value = false
-    scrollToBottom()
   }
 }
 
 onMounted(() => {
-  resizeComposer()
-  scrollToBottom()
-  focusComposer()
+  autoResize()
 })
 </script>
 
-<style scoped>
-:global(:root) {
-  color-scheme: dark;
-  --bg-base: #080c12;
-  --bg-shell: rgba(13, 18, 27, 0.82);
-  --bg-soft: rgba(20, 27, 39, 0.92);
-  --bg-muted: rgba(255, 255, 255, 0.04);
-  --line-soft: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(0, 220, 130, 0.28);
-  --text-strong: #f5f7fb;
-  --text-body: rgba(223, 229, 239, 0.78);
-  --text-muted: rgba(168, 178, 193, 0.66);
-  --accent: #00dc82;
-  --accent-soft: #5ff2ac;
-  --danger-bg: rgba(133, 39, 32, 0.24);
-  --danger-text: #ffc4bb;
-  --shadow-xl: 0 32px 90px rgba(0, 0, 0, 0.28);
-  --font-ui: "Manrope", "Segoe UI", sans-serif;
+<style>
+/* CSS Variables */
+:root {
+  --color-bg: #0a0a0f;
+  --color-bg-secondary: #12121a;
+  --color-bg-tertiary: #1a1a25;
+  --color-surface: rgba(255, 255, 255, 0.05);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.15);
+
+  --color-text: #f0f0f5;
+  --color-text-secondary: #a0a0b0;
+  --color-text-muted: #606070;
+
+  --color-accent: #00d4aa;
+  --color-accent-hover: #00e8bb;
+  --color-accent-alpha: rgba(0, 212, 170, 0.15);
+
+  --color-error: #ff6b6b;
+  --color-error-bg: rgba(255, 107, 107, 0.1);
+  --color-warning: #ffa93d;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 40px rgba(0, 212, 170, 0.15);
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
 }
 
-:global(body) {
-  margin: 0;
-  min-height: 100vh;
-  color: var(--text-strong);
-  background:
-    radial-gradient(circle at top left, rgba(0, 220, 130, 0.08), transparent 22%),
-    radial-gradient(circle at 90% 12%, rgba(0, 220, 130, 0.05), transparent 18%),
-    linear-gradient(180deg, #0d1219 0%, #090c12 40%, #06080d 100%);
-  font-family: var(--font-ui);
-}
-
-:global(*) {
+/* Reset & Base */
+*, *::before, *::after {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-.app-shell {
-  position: relative;
+html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
   min-height: 100vh;
+}
+
+/* App Container */
+.app {
+  min-height: 100vh;
+  position: relative;
   overflow: hidden;
 }
 
-.page-glow {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(110px);
+/* Background Effects */
+.bg-gradient {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0, 212, 170, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(99, 102, 241, 0.05), transparent);
   pointer-events: none;
 }
 
-.page-glow-top {
-  top: -14%;
-  left: -8%;
-  width: 420px;
-  height: 420px;
-  background: rgba(0, 220, 130, 0.09);
+.bg-glow {
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  opacity: 0.4;
 }
 
-.page-glow-bottom {
-  right: -10%;
-  bottom: -12%;
-  width: 360px;
-  height: 360px;
-  background: rgba(0, 220, 130, 0.06);
+.bg-glow.top {
+  top: -300px;
+  left: -200px;
+  background: radial-gradient(circle, rgba(0, 212, 170, 0.3), transparent 70%);
 }
 
-.playground-shell {
+.bg-glow.bottom {
+  bottom: -300px;
+  right: -200px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.2), transparent 70%);
+}
+
+/* Main Container */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 24px;
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  width: min(1120px, calc(100vw - 36px));
-  min-height: 100vh;
-  margin: 0 auto;
-  padding: 22px 0 28px;
 }
 
-.top-bar {
+/* Header */
+.header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 18px;
-  padding-bottom: 18px;
+  justify-content: space-between;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--color-border);
 }
 
-.bar-brand {
-  display: grid;
-  gap: 8px;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.eyebrow,
-.menu-label {
-  margin: 0;
-  color: var(--accent-soft);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+.logo {
+  width: 40px;
+  height: 40px;
+  color: var(--color-accent);
 }
 
-.brand-row {
+.logo svg {
+  width: 100%;
+  height: 100%;
+}
+
+.brand-text h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.version {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
-.brand-row h1,
-.brand-row h1 {
-  margin: 0;
-  font-family: var(--font-ui);
-  letter-spacing: -0.04em;
-}
-
-.brand-row h1 {
-  font-size: clamp(1.8rem, 2.5vw, 2.4rem);
-  line-height: 1;
-}
-
-.subtle-pill,
-.health-pill,
-.menu-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line-soft);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-body);
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-.bar-actions {
+/* Status Badge */
+.status-badge {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
 }
 
-.health-pill.ready {
-  border-color: rgba(0, 220, 130, 0.22);
-  color: #dffff0;
+.status-badge.ready {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-alpha);
 }
 
-.menu {
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
   position: relative;
 }
 
-.menu summary {
-  list-style: none;
+.status-badge.ready .status-dot {
+  background: var(--color-accent);
 }
 
-.menu summary::-webkit-details-marker {
-  display: none;
-}
-
-.menu-trigger {
-  cursor: pointer;
-  user-select: none;
-  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
-}
-
-.menu[open] .menu-trigger,
-.menu-trigger:hover {
-  border-color: var(--line-strong);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.menu-panel {
+.status-badge.ready .status-dot::after {
+  content: '';
   position: absolute;
-  top: calc(100% + 12px);
-  right: 0;
-  z-index: 12;
-  display: grid;
-  gap: 16px;
-  width: min(360px, calc(100vw - 28px));
-  padding: 16px;
-  border: 1px solid var(--line-soft);
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
-    rgba(11, 16, 24, 0.96);
-  box-shadow: var(--shadow-xl);
-  backdrop-filter: blur(18px);
-}
-
-.menu-section {
-  display: grid;
-  gap: 10px;
-}
-
-.mode-switch {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.mode-tab,
-.menu-button,
-.composer-input,
-.token-control input,
-.primary-button {
-  color: inherit;
-  font: inherit;
-  border: 1px solid var(--line-soft);
-}
-
-.mode-tab {
-  display: grid;
-  gap: 4px;
-  min-height: 76px;
-  padding: 16px;
-  border-radius: 22px;
-  background: var(--bg-muted);
-  text-align: left;
-  cursor: pointer;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
-}
-
-.mode-tab span {
-  font-weight: 700;
-}
-
-.mode-tab small {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-
-.mode-tab.active {
-  border-color: var(--line-strong);
-  background: linear-gradient(135deg, rgba(0, 220, 130, 0.14), rgba(0, 220, 130, 0.04));
-}
-
-.reasoning-toggle {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  padding: 14px 16px;
-  border: 1px solid var(--line-soft);
-  border-radius: 20px;
-  background: var(--bg-muted);
-}
-
-.reasoning-toggle strong {
-  display: block;
-  margin-bottom: 4px;
-}
-
-.reasoning-toggle span {
-  color: var(--text-body);
-  line-height: 1.6;
-}
-
-.reasoning-toggle input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
-}
-
-.menu-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-}
-
-.menu-meta div {
-  padding: 12px;
-  border: 1px solid var(--line-soft);
-  border-radius: 18px;
-  background: var(--bg-muted);
-}
-
-.menu-meta dt,
-.message-meta {
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.menu-meta dd {
-  margin: 8px 0 0;
-  color: var(--text-strong);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.action-panel {
-  gap: 10px;
-}
-
-.menu-button {
-  min-height: 48px;
-  padding: 0 16px;
-  border-radius: 18px;
-  background: var(--bg-muted);
-  text-align: left;
-  cursor: pointer;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
-}
-
-.panel {
-  border: 1px solid var(--line-soft);
-  border-radius: 34px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
-    var(--bg-shell);
-  box-shadow: var(--shadow-xl), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(18px);
-}
-
-.chat-stage {
-  display: grid;
-  align-items: center;
-  padding: 16px 0 10px;
-}
-
-.chat-stage.engaged {
-  align-items: start;
-}
-
-.chat-frame {
-  display: grid;
-  grid-template-rows: auto;
-  width: min(840px, 100%);
-  height: auto;
-  margin: 0 auto;
-  overflow: hidden;
-  transition: width 220ms ease, border-radius 220ms ease;
-}
-
-.chat-frame.engaged {
-  grid-template-rows: auto auto;
-  width: min(1080px, 100%);
-}
-
-.chat-scroll {
-  display: grid;
-  gap: 14px;
-  padding: 24px 24px 16px;
-}
-
-.message-row {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-}
-
-.role-user {
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: end;
-}
-
-.avatar {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
-  border: 1px solid var(--line-strong);
-  background: linear-gradient(180deg, rgba(0, 220, 130, 0.18), rgba(0, 220, 130, 0.05));
-  color: #dfffee;
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.message-card {
-  max-width: min(86%, 840px);
-  padding: 14px 16px;
-  border: 1px solid var(--line-soft);
-  border-radius: 20px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
-    rgba(12, 18, 26, 0.92);
-}
-
-.role-user .message-card {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.016)),
-    rgba(18, 24, 34, 0.94);
-}
-
-.role-assistant .message-card {
-  border-color: rgba(0, 220, 130, 0.16);
-  background:
-    linear-gradient(180deg, rgba(0, 220, 130, 0.08), rgba(0, 220, 130, 0.02)),
-    rgba(11, 17, 25, 0.94);
-}
-
-.message-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 0.7rem;
-}
-
-.message-meta span {
-  overflow-wrap: anywhere;
-}
-
-.message-role {
-  color: #d8ffee;
-}
-
-.message-text {
-  margin: 0;
-  color: var(--text-strong);
-  line-height: 1.64;
-  white-space: pre-wrap;
-}
-
-.reasoning-block {
-  margin-top: 10px;
-  color: var(--text-body);
-}
-
-.reasoning-block pre {
-  margin: 10px 0 0;
-  padding: 12px;
-  border: 1px solid var(--line-soft);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.035);
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow: auto;
-  font-family: inherit;
-  font-size: 0.8rem;
-}
-
-.message-error {
-  margin: 10px 0 0;
-  color: #ffb1a7;
-  white-space: pre-wrap;
-}
-
-.pending-card {
-  display: grid;
-  align-items: center;
-  min-height: 62px;
-}
-
-.typing-dots {
-  display: flex;
-  gap: 8px;
-}
-
-.typing-dots span {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--accent);
-  animation: pulse 1s infinite ease-in-out;
-}
-
-.typing-dots span:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.typing-dots span:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.composer-shell {
-  padding: 18px;
-  background: rgba(8, 12, 18, 0.78);
-}
-
-.composer-shell.engaged {
-  padding: 12px 18px 18px;
-  border-top: 1px solid var(--line-soft);
-  background: linear-gradient(180deg, rgba(8, 12, 18, 0.4), rgba(8, 12, 18, 0.92));
-}
-
-.banner {
-  margin-bottom: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--line-soft);
-  border-radius: 16px;
-  font-size: 0.92rem;
-}
-
-.error-banner {
-  background: var(--danger-bg);
-  color: var(--danger-text);
-}
-
-.info-banner {
-  background: rgba(0, 220, 130, 0.14);
-  color: #dffff0;
-}
-
-.composer {
-  display: grid;
-  gap: 14px;
-}
-
-.composer-input {
-  width: 100%;
-  min-height: 74px;
-  max-height: 220px;
-  padding: 18px;
-  resize: none;
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
-    rgba(7, 12, 19, 0.52);
-  line-height: 1.7;
-}
-
-.composer-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
-}
-
-.token-control {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-body);
-}
-
-.token-control input {
-  width: 120px;
-  height: 44px;
-  padding: 0 12px;
-  border-radius: 16px;
-  background: var(--bg-muted);
-}
-
-.primary-button {
-  min-width: 148px;
-  height: 48px;
-  padding: 0 18px;
-  border-radius: 16px;
-  border-color: rgba(132, 255, 200, 0.28);
-  background: linear-gradient(135deg, #00dc82 0%, #37f0aa 100%);
-  color: #062012;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 16px 28px rgba(0, 220, 130, 0.16);
-  transition: transform 140ms ease, filter 140ms ease;
-}
-
-.mode-tab:hover,
-.menu-button:hover:enabled,
-.primary-button:hover:enabled,
-.menu-trigger:hover {
-  transform: translateY(-1px);
-}
-
-.menu-button:disabled,
-.primary-button:disabled {
-  opacity: 0.55;
-  cursor: default;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--color-accent);
+  animation: pulse 2s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%,
-  80%,
-  100% {
-    opacity: 0.35;
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0; }
+}
+
+/* Dropdown */
+.dropdown {
+  position: relative;
+}
+
+.dropdown summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.dropdown-trigger:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.dropdown-trigger .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.dropdown-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+}
+
+.panel-section {
+  margin-bottom: 20px;
+}
+
+.panel-section:last-child {
+  margin-bottom: 0;
+}
+
+.panel-section h3 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+}
+
+/* Mode Selector */
+.mode-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mode-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mode-option:hover {
+  border-color: var(--color-border-strong);
+}
+
+.mode-option.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-alpha);
+}
+
+.mode-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--color-text-secondary);
+}
+
+.mode-option.active .mode-icon {
+  color: var(--color-accent);
+}
+
+.mode-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.mode-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.mode-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* Toggle */
+.toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.toggle-label:last-child {
+  border-bottom: none;
+}
+
+.toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.toggle-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.toggle-input {
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.toggle-input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--color-text-secondary);
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+}
+
+.toggle-input:checked {
+  background: var(--color-accent-alpha);
+  border-color: var(--color-accent);
+}
+
+.toggle-input:checked::after {
+  left: 22px;
+  background: var(--color-accent);
+}
+
+/* Info Grid */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.info-value {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Panel Actions */
+.panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.action-btn:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-tertiary);
+}
+
+.action-btn.secondary {
+  color: var(--color-text-secondary);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Chat Container */
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 0;
+  overflow-y: auto;
+}
+
+/* Welcome Screen */
+.welcome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.welcome-icon {
+  width: 64px;
+  height: 64px;
+  color: var(--color-accent);
+  margin-bottom: 24px;
+  opacity: 0.8;
+}
+
+.welcome-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.welcome h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--color-text), var(--color-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome p {
+  color: var(--color-text-secondary);
+  margin-bottom: 32px;
+}
+
+.quick-starts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 500px;
+}
+
+.quick-prompt {
+  padding: 10px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.quick-prompt:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-alpha);
+}
+
+/* Messages */
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.message {
+  display: flex;
+  gap: 16px;
+  animation: message-in 0.3s ease;
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
     transform: translateY(0);
   }
-  40% {
-    opacity: 1;
-    transform: translateY(-3px);
-  }
 }
 
-@media (max-width: 900px) {
-  .playground-shell {
-    width: min(100vw - 20px, 1120px);
-    padding-top: 14px;
-  }
-
-  .top-bar,
-  .composer-footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .bar-actions {
-    justify-content: flex-start;
-  }
-
-  .chat-frame {
-    width: 100%;
-    height: auto;
-  }
-
-  .menu-meta {
-    grid-template-columns: 1fr;
-  }
+.message-avatar {
+  flex-shrink: 0;
 }
 
-@media (max-width: 680px) {
-  .chat-scroll {
-    padding: 18px 14px 14px;
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.avatar svg {
+  width: 20px;
+  height: 20px;
+}
+
+.avatar.assistant {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent-alpha);
+}
+
+.avatar.user {
+  color: var(--color-text-secondary);
+}
+
+.message-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.8125rem;
+}
+
+.message-author {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.message-model {
+  color: var(--color-text-muted);
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.badge.fallback {
+  background: rgba(255, 169, 61, 0.15);
+  color: var(--color-warning);
+}
+
+.badge.streaming {
+  background: var(--color-accent-alpha);
+  color: var(--color-accent);
+  animation: pulse-opacity 2s ease-in-out infinite;
+}
+
+@keyframes pulse-opacity {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.message-body {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.message.user .message-body {
+  background: var(--color-accent-alpha);
+  border-color: var(--color-accent);
+}
+
+.message-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background: var(--color-accent);
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Reasoning */
+.reasoning {
+  margin-top: 12px;
+}
+
+.reasoning details {
+  font-size: 0.8125rem;
+}
+
+.reasoning summary {
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.reasoning summary:hover {
+  color: var(--color-text);
+}
+
+.reasoning pre {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Message Error */
+.message-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--color-error-bg);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--color-error);
+  font-size: 0.8125rem;
+}
+
+.message-error svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Input Area */
+.input-area {
+  padding: 24px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  background: var(--color-error-bg);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
+
+.error-banner svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.input-form {
+  position: relative;
+}
+
+.input-wrapper {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.input-wrapper textarea {
+  width: 100%;
+  min-height: 60px;
+  max-height: 200px;
+  padding: 16px;
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+
+.input-wrapper textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input-wrapper textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.token-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.token-slider label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.token-slider input[type="range"] {
+  width: 120px;
+  height: 4px;
+  background: var(--color-surface);
+  border-radius: 2px;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.token-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn.send {
+  width: 40px;
+  height: 40px;
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.btn.send:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  transform: scale(1.05);
+}
+
+.btn.send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn.stop {
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.btn.stop:hover {
+  background: rgba(255, 107, 107, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .container {
+    padding: 0 16px;
   }
 
-  .message-row {
-    grid-template-columns: 1fr;
+  .header {
+    padding: 16px 0;
+  }
+
+  .brand-text h1 {
+    font-size: 1.1rem;
+  }
+
+  .dropdown-panel {
+    position: fixed;
+    top: auto;
+    right: 16px;
+    left: 16px;
+    bottom: 80px;
+    width: auto;
+  }
+
+  .message {
+    gap: 12px;
   }
 
   .avatar {
-    display: none;
+    width: 32px;
+    height: 32px;
   }
 
-  .message-card,
-  .role-user .message-card,
-  .primary-button,
-  .token-control input {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .token-control {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .menu-panel {
-    right: auto;
-    left: 0;
+  .message-body {
+    padding: 12px;
   }
 }
 </style>

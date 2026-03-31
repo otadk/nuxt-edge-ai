@@ -35,6 +35,8 @@ The StackBlitz example keeps the setup intentionally small and uses the OpenAI-s
 - local-first server-side inference with bundled WASM runtime assets
 - optional OpenAI-compatible remote provider for stronger hosted models
 - OpenAI-compatible `chat/completions` endpoint for SDK-style integration
+- **streaming chat completions** with SSE (Server-Sent Events) for real-time typewriter effect
+- compatible with `@ai-sdk/vue`'s `useChat()` for seamless integration
 - published package includes vendored inference runtime files
 - no consumer requirement for Ollama, Rust, C++, Python, or native AI runtimes
 
@@ -69,7 +71,7 @@ The local path is intentionally conservative now. When local inference is not en
 | Local inference | Supported | Bundled Transformers.js + ONNX Runtime WASM |
 | Remote inference | Supported | OpenAI-compatible `chat/completions` providers |
 | Mock mode | Supported | Fixture tests, CI, and integration smoke checks |
-| Streaming | Not yet supported | `stream: true` requests are rejected today |
+| Streaming | **Supported** | SSE-based streaming with AI SDK-compatible protocol |
 | Edge runtime workers | Not yet supported | The local WASM runtime currently assumes a Node server process |
 
 ## Validation
@@ -336,6 +338,98 @@ const response = await client.chat.completions.create({
 
 If you want to call the route wrapper directly, `useEdgeAI().chatCompletions(...)` maps to the same `/chat/completions` endpoint.
 
+## Streaming chat completions
+
+The module now supports real-time streaming responses with Server-Sent Events (SSE). This enables the typewriter effect that modern AI applications expect.
+
+### Using `useEdgeAI()` with streaming
+
+```vue
+<script setup lang="ts">
+const edgeAI = useEdgeAI()
+const messages = ref<Array<{ role: 'user' | 'assistant', content: string }>>([])
+const input = ref('')
+
+async function handleSubmit() {
+  const text = input.value.trim()
+  if (!text) return
+
+  // Add user message
+  messages.value.push({ role: 'user', content: text })
+  input.value = ''
+
+  // Add placeholder for assistant response
+  messages.value.push({ role: 'assistant', content: '' })
+
+  // Stream the response
+  try {
+    for await (const token of edgeAI.streamChatCompletionsGenerator({
+      model: edgeAI.defaultModel,
+      messages: messages.value.slice(0, -1),
+      stream: true,
+    })) {
+      // Update the last message with each token
+      const lastMessage = messages.value[messages.value.length - 1]
+      lastMessage.content += token
+    }
+  }
+  catch (error) {
+    console.error('Stream error:', error)
+  }
+}
+
+// Stop streaming if needed
+function stop() {
+  edgeAI.stop()
+}
+</script>
+```
+
+### Using the EdgeAI client with streaming
+
+```ts
+import { EdgeAI } from 'nuxt-edge-ai'
+
+const client = new EdgeAI({
+  baseURL: 'http://localhost:3000/api/edge-ai',
+})
+
+// Stream with callbacks
+await client.chat.completions.stream(
+  {
+    model: 'distilgpt2',
+    messages: [{ role: 'user', content: 'Hello!' }],
+    stream: true,
+  },
+  {
+    onToken: (token) => console.log(token),
+    onCompletion: (text) => console.log('Done:', text),
+    onError: (error) => console.error(error),
+  }
+)
+
+// Or use async generator
+for await (const token of client.streamChatCompletionGenerator({
+  model: 'distilgpt2',
+  messages: [{ role: 'user', content: 'Hello!' }],
+  stream: true,
+})) {
+  console.log(token)
+}
+```
+
+### Compatible with `@ai-sdk/vue`
+
+The streaming protocol is compatible with Vercel AI SDK's `useChat()` composable. You can use `@ai-sdk/vue` with this module:
+
+```ts
+import { useChat } from '@ai-sdk/vue'
+
+const { messages, input, handleSubmit, isLoading, stop } = useChat({
+  api: '/api/edge-ai/chat/completions',
+})
+```
+
 When the module is using a remote OpenAI-compatible backend, it forwards `messages`, `reasoning`, and any extra `remoteBody` fields. If the upstream provider returns `reasoning_details`, the module preserves them on `choices[0].message`.
 
 Example OpenRouter-style config:
@@ -367,7 +461,6 @@ Common checks:
 
 ## Known limitations
 
-- Streaming chat completions are not implemented yet.
 - The local provider currently targets `text-generation` only.
 - The local WASM runtime is designed for a Node/Nitro server process, not edge-worker runtimes.
 - Model quality and latency depend heavily on the selected preset or upstream remote model.

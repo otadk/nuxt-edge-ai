@@ -23,6 +23,7 @@ export interface EdgeAIGenerateRequest {
   reasoning?: EdgeAIRemoteReasoningOptions
   remoteBody?: Record<string, unknown>
   generation?: Partial<EdgeAIGenerationOptions>
+  stream?: boolean
 }
 
 export interface EdgeAIChatCompletionRequest {
@@ -182,3 +183,70 @@ export interface EdgeAIChatCompletionResponse {
   runtime: EdgeAIRuntime
   fellBackToRemote?: boolean
 }
+
+// Streaming types
+export interface EdgeAIChatCompletionStreamResponse {
+  id: string
+  object: 'chat.completion.chunk'
+  created: number
+  model: string
+  choices: Array<{
+    index: number
+    delta: Partial<EdgeAIRemoteMessage>
+    finish_reason: 'stop' | null
+  }>
+}
+
+export interface EdgeAIStreamCallbacks {
+  onStart?: () => void
+  onToken?: (token: string) => void
+  onCompletion?: (text: string) => void
+  onError?: (error: Error) => void
+  onAbort?: (reason: string) => void
+}
+
+export interface EdgeAIStreamState {
+  isLoading: boolean
+  isStreaming: boolean
+  text: string
+  abortController: AbortController | null
+}
+
+// AI SDK Data Stream Protocol types
+export interface DataStreamPart {
+  type: string
+  [key: string]: unknown
+}
+
+export interface TextStartPart extends DataStreamPart {
+  type: 'text-start'
+  id: string
+}
+
+export interface TextDeltaPart extends DataStreamPart {
+  type: 'text-delta'
+  id: string
+  delta: string
+}
+
+export interface TextEndPart extends DataStreamPart {
+  type: 'text-end'
+  id: string
+}
+
+export interface StartPart extends DataStreamPart {
+  type: 'start'
+  messageId: string
+}
+
+export interface FinishPart extends DataStreamPart {
+  type: 'finish'
+  messageId?: string
+}
+
+export interface ErrorPart extends DataStreamPart {
+  type: 'error'
+  errorText: string
+}
+
+export type StreamPart = TextStartPart | TextDeltaPart | TextEndPart | StartPart | FinishPart | ErrorPart | DataStreamPart
