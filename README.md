@@ -5,6 +5,8 @@
 [![license](https://img.shields.io/npm/l/nuxt-edge-ai.svg)](./LICENSE)
 [![nuxt](https://img.shields.io/badge/Nuxt-4.x-00DC82?logo=nuxt.js&logoColor=white)](https://nuxt.com/)
 [![ci](https://github.com/otadk/nuxt-edge-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/otadk/nuxt-edge-ai/actions/workflows/ci.yml)
+[![oosmetrics](https://api.oosmetrics.com/api/v1/badge/achievement/69a77845-965e-4d85-a153-e43023059704.svg)](https://oosmetrics.com/repo/otadk/nuxt-edge-ai)
+[![oosmetrics](https://api.oosmetrics.com/api/v1/badge/achievement/5e00ff2f-b279-4ba3-a4de-4f53d9ca2c0c.svg)](https://oosmetrics.com/repo/otadk/nuxt-edge-ai)
 
 `nuxt-edge-ai` is a Nuxt module for building local-first AI applications with a real server-side WASM inference runtime and an optional remote API fallback.
 
