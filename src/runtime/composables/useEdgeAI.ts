@@ -4,12 +4,22 @@ import type { EdgeAI } from '../client'
 import type {
   EdgeAIChatCompletionRequest,
   EdgeAIChatCompletionResponse,
+  EdgeAIClassifyRequest,
+  EdgeAIClassifyResponse,
+  EdgeAIEmbedRequest,
+  EdgeAIEmbedResponse,
+  EdgeAIFillMaskRequest,
+  EdgeAIFillMaskResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIHealthResponse,
   EdgeAIPublicRuntimeConfig,
   EdgeAIPullResponse,
   EdgeAIStreamCallbacks,
+  EdgeAISummarizeRequest,
+  EdgeAISummarizeResponse,
+  EdgeAITranslateRequest,
+  EdgeAITranslateResponse,
 } from '../types'
 
 export interface UseEdgeAIOptions {
@@ -273,19 +283,22 @@ export function useEdgeAI(options: UseEdgeAIOptions = {}) {
     }
 
     try {
-      const response = await fetch(
-        routeBase.startsWith('http') ? `${routeBase}/chat/completions` : new URL(`${routeBase}/chat/completions`, window.location.origin).toString(),
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'accept': 'text/event-stream',
-            'x-vercel-ai-ui-message-stream': 'v1',
-          },
-          body: JSON.stringify({ ...payload, stream: true }),
-          signal: abortController.value.signal,
+      const fetchUrl = routeBase.startsWith('http')
+        ? `${routeBase}/chat/completions`
+        : new URL(`${routeBase}/chat/completions`, window.location.origin).toString()
+
+
+      const response = await fetch(fetchUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'accept': 'text/event-stream',
+          'x-vercel-ai-ui-message-stream': 'v1',
         },
-      )
+        body: JSON.stringify({ ...payload, stream: true }),
+        signal: abortController.value.signal,
+      })
+
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -352,16 +365,23 @@ export function useEdgeAI(options: UseEdgeAIOptions = {}) {
                 case 'error': {
                   throw new Error(part.errorText || 'Stream error')
                 }
+                default: {
+                  // start, text-start, text-end — pass through silently
+                  break
+                }
               }
             }
           }
 
-          if (done) break
+          if (done) {
+            break
+          }
         }
       }
       finally {
         reader.releaseLock()
       }
+
 
       isStreaming.value = false
       isLoading.value = false
@@ -407,6 +427,23 @@ export function useEdgeAI(options: UseEdgeAIOptions = {}) {
     },
     health() {
       return edgeAIService.health()
+    },
+
+    // Task-specific methods
+    classify(payload: EdgeAIClassifyRequest) {
+      return edgeAIService.client.classify(payload)
+    },
+    embed(payload: EdgeAIEmbedRequest) {
+      return edgeAIService.client.embed(payload)
+    },
+    summarize(payload: EdgeAISummarizeRequest) {
+      return edgeAIService.client.summarize(payload)
+    },
+    translate(payload: EdgeAITranslateRequest) {
+      return edgeAIService.client.translate(payload)
+    },
+    fillMask(payload: EdgeAIFillMaskRequest) {
+      return edgeAIService.client.fillMask(payload)
     },
 
     // Streaming state (reactive refs)

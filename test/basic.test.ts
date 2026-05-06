@@ -130,6 +130,65 @@ describe('ssr', async () => {
     expect(jsonParts.some(part => 'type' in part && part.type === 'finish')).toBe(true)
   })
 
+  it('streams data via ReadableStream reader (browser-like chunked reads)', async () => {
+    const response = await fetch(url('/api/edge-ai/chat/completions'), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'accept': 'text/event-stream',
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: 'user', content: 'Test reader-based streaming.' },
+        ],
+      }),
+    })
+
+    expect(response.ok).toBe(true)
+    expect(response.body).toBeTruthy()
+
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    const collectedDeltas: string[] = []
+    let sawStart = false
+    let sawFinish = false
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (value) {
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed.startsWith('data: ')) continue
+
+            const data = trimmed.slice(6)
+            if (data === '[DONE]') continue
+
+            let part: { type?: string, delta?: string }
+            try { part = JSON.parse(data) } catch { continue }
+
+            if (part.type === 'start') sawStart = true
+            if (part.type === 'text-delta') collectedDeltas.push(part.delta || '')
+            if (part.type === 'finish') sawFinish = true
+          }
+        }
+        if (done) break
+      }
+    } finally {
+      reader.releaseLock()
+    }
+
+    expect(sawStart).toBe(true)
+    expect(sawFinish).toBe(true)
+    expect(collectedDeltas.length).toBeGreaterThan(0)
+    expect(collectedDeltas.join('').length).toBeGreaterThan(0)
+  })
+
   it('serves OpenAI-style SSE chunks when stream=true is requested directly', async () => {
     const response = await fetch(url('/api/edge-ai/chat/completions'), {
       method: 'POST',

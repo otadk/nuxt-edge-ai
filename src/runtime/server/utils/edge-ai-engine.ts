@@ -6,14 +6,26 @@ import type {
   EdgeAIChatCompletionRequest,
   EdgeAIChatCompletionResponse,
   EdgeAIChatCompletionStreamResponse,
+  EdgeAIClassifyRequest,
+  EdgeAIClassifyResponse,
+  EdgeAIEmbedRequest,
+  EdgeAIEmbedResponse,
+  EdgeAIFillMaskRequest,
+  EdgeAIFillMaskResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIGenerationOptions,
   EdgeAIHealthResponse,
+  EdgeAIMetrics,
   EdgeAIModelInfo,
   EdgeAIRemoteMessage,
   EdgeAIRemoteConfig,
   EdgeAIServerRuntimeConfig,
+  EdgeAISummarizeRequest,
+  EdgeAISummarizeResponse,
+  EdgeAITask,
+  EdgeAITranslateRequest,
+  EdgeAITranslateResponse,
   EdgeAIPullResponse,
   StreamPart,
   TextDeltaPart,
@@ -282,7 +294,7 @@ function ensureOnnxWasmEnv(env: TransformersEnv) {
   return envWithMutableBackends.backends.onnx.wasm
 }
 
-function resolveLocalModelSource(config: EdgeAIServerRuntimeConfig, modelOverride?: string): EdgeAIModelInfo {
+export function resolveLocalModelSource(config: EdgeAIServerRuntimeConfig, modelOverride?: string): EdgeAIModelInfo {
   const requestedModel = modelOverride?.trim()
   const source = requestedModel || config.model.localPath || config.model.id
 
@@ -297,7 +309,7 @@ function resolveLocalModelSource(config: EdgeAIServerRuntimeConfig, modelOverrid
   }
 }
 
-function resolveRemoteModelSource(config: EdgeAIServerRuntimeConfig, modelOverride?: string): EdgeAIModelInfo {
+export function resolveRemoteModelSource(config: EdgeAIServerRuntimeConfig, modelOverride?: string): EdgeAIModelInfo {
   const model = modelOverride?.trim() || config.remote.model
 
   return {
@@ -339,12 +351,13 @@ function currentEngineState(config: EdgeAIServerRuntimeConfig): EdgeAIHealthResp
   }
 }
 
-async function ensureTransformersPipeline(config: EdgeAIServerRuntimeConfig, modelOverride?: string) {
+async function ensureTransformersPipeline(config: EdgeAIServerRuntimeConfig, modelOverride?: string, taskOverride?: EdgeAITask) {
   const model = resolveLocalModelSource(config, modelOverride)
-  const modelKey = `${model.source}::${model.dtype ?? 'default'}`
+  const task = taskOverride || config.model.task
+  const modelKey = `${task}::${model.source}::${model.dtype ?? 'default'}`
 
   if (state.pipeline && state.modelKey === modelKey) {
-    return { pipeline: state.pipeline, loadedNow: false, model }
+    return { pipeline: state.pipeline, loadedNow: false, model: { ...model, task } }
   }
 
   if (!state.pipelinePromise || state.modelKey !== modelKey) {
@@ -379,7 +392,7 @@ async function ensureTransformersPipeline(config: EdgeAIServerRuntimeConfig, mod
         ortRuntime.env.wasm.proxy = false
       }
 
-      return transformers.pipeline(config.model.task, model.source, {
+      return transformers.pipeline(task, model.source, {
         device: 'wasm',
         dtype: model.dtype,
       })
@@ -403,23 +416,23 @@ async function ensureTransformersPipeline(config: EdgeAIServerRuntimeConfig, mod
   }
 
   const pipeline = await state.pipelinePromise
-  return { pipeline, loadedNow: true, model }
+  return { pipeline, loadedNow: true, model: { ...model, task } }
 }
 
-function resolveGenerationOptions(
-  defaults: EdgeAIGenerationOptions,
+export function resolveGenerationOptions(
+  defaults?: EdgeAIGenerationOptions,
   overrides?: EdgeAIGenerateRequest['generation'],
 ) {
   return {
-    maxNewTokens: overrides?.maxNewTokens ?? defaults.maxNewTokens,
-    temperature: overrides?.temperature ?? defaults.temperature,
-    topP: overrides?.topP ?? defaults.topP,
-    doSample: overrides?.doSample ?? defaults.doSample,
-    repetitionPenalty: overrides?.repetitionPenalty ?? defaults.repetitionPenalty,
+    maxNewTokens: overrides?.maxNewTokens ?? defaults?.maxNewTokens ?? 96,
+    temperature: overrides?.temperature ?? defaults?.temperature ?? 0.7,
+    topP: overrides?.topP ?? defaults?.topP ?? 0.9,
+    doSample: overrides?.doSample ?? defaults?.doSample ?? true,
+    repetitionPenalty: overrides?.repetitionPenalty ?? defaults?.repetitionPenalty ?? 1.05,
   } satisfies EdgeAIGenerationOptions
 }
 
-function extractGeneratedText(prompt: string, output: unknown) {
+export function extractGeneratedText(prompt: string, output: unknown) {
   const firstItem = Array.isArray(output) ? output[0] : output
 
   if (firstItem && typeof firstItem === 'object' && 'generated_text' in firstItem) {
@@ -434,7 +447,7 @@ function extractGeneratedText(prompt: string, output: unknown) {
   return JSON.stringify(output)
 }
 
-function extractTextFromMessageContent(content: unknown): string {
+export function extractTextFromMessageContent(content: unknown): string {
   if (typeof content === 'string') {
     return content
   }
@@ -462,7 +475,7 @@ function extractTextFromMessageContent(content: unknown): string {
   return String(content)
 }
 
-function resolvePromptFromMessages(messages?: EdgeAIRemoteMessage[]) {
+export function resolvePromptFromMessages(messages?: EdgeAIRemoteMessage[]) {
   const lastUserMessage = [...(messages || [])]
     .reverse()
     .find(message => message.role === 'user')
@@ -474,11 +487,11 @@ function resolvePromptFromMessages(messages?: EdgeAIRemoteMessage[]) {
   return extractTextFromMessageContent(lastUserMessage.content).trim()
 }
 
-function resolvePrompt(input: EdgeAIGenerateRequest) {
+export function resolvePrompt(input: EdgeAIGenerateRequest) {
   return input.prompt?.trim() || resolvePromptFromMessages(input.messages)
 }
 
-function buildRemoteMessages(config: EdgeAIServerRuntimeConfig, input: EdgeAIGenerateRequest) {
+export function buildRemoteMessages(config: EdgeAIServerRuntimeConfig, input: EdgeAIGenerateRequest) {
   if (input.messages?.length) {
     return input.messages
   }
@@ -492,7 +505,7 @@ function buildRemoteMessages(config: EdgeAIServerRuntimeConfig, input: EdgeAIGen
   ] satisfies EdgeAIRemoteMessage[]
 }
 
-function buildAssistantMessage(payload: RemoteChatCompletionResponse, text: string): EdgeAIRemoteMessage {
+export function buildAssistantMessage(payload: RemoteChatCompletionResponse, text: string): EdgeAIRemoteMessage {
   const choiceMessage = payload.choices?.[0]?.message
 
   if (choiceMessage && typeof choiceMessage === 'object') {
@@ -509,11 +522,11 @@ function buildAssistantMessage(payload: RemoteChatCompletionResponse, text: stri
   }
 }
 
-function estimateTokenCount(text: string) {
+export function estimateTokenCount(text: string) {
   return Math.max(1, Math.ceil(text.length / 4))
 }
 
-function toChatCompletionResponse(
+export function toChatCompletionResponse(
   request: EdgeAIChatCompletionRequest,
   result: EdgeAIGenerateResponse,
 ): EdgeAIChatCompletionResponse {
@@ -546,7 +559,7 @@ function toChatCompletionResponse(
   }
 }
 
-function toChatCompletionStreamChunk(
+export function toChatCompletionStreamChunk(
   id: string,
   model: string,
   delta: Partial<EdgeAIRemoteMessage>,
@@ -621,7 +634,7 @@ function runMockInference(config: EdgeAIServerRuntimeConfig, input: EdgeAIGenera
   }
 }
 
-function resolveRemoteApiKey(config: EdgeAIRemoteConfig) {
+export function resolveRemoteApiKey(config: EdgeAIRemoteConfig) {
   if (config.apiKey?.trim()) {
     return config.apiKey.trim()
   }
@@ -629,13 +642,13 @@ function resolveRemoteApiKey(config: EdgeAIRemoteConfig) {
   return undefined
 }
 
-function joinUrl(baseURL: string, path: string) {
+export function joinUrl(baseURL: string, path: string) {
   const normalizedBase = baseURL.replace(/\/+$/, '')
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   return `${normalizedBase}${normalizedPath}`
 }
 
-function extractRemoteText(payload: RemoteChatCompletionResponse) {
+export function extractRemoteText(payload: RemoteChatCompletionResponse) {
   if (typeof payload.output_text === 'string' && payload.output_text.trim()) {
     return payload.output_text.trim()
   }
@@ -670,6 +683,243 @@ function extractRemoteText(payload: RemoteChatCompletionResponse) {
   }
 
   return JSON.stringify(payload)
+}
+
+// Task-specific engine functions
+
+const TASK_DEFAULT_MODELS: Record<string, string> = {
+  'text-classification': 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+  'feature-extraction': 'Xenova/all-MiniLM-L6-v2',
+  'summarization': 'Xenova/distilbart-cnn-6-6',
+  'translation': 'Xenova/opus-mt-en-zh',
+  'fill-mask': 'Xenova/bert-base-uncased',
+}
+
+export async function classifyEdgeAIText(
+  config: EdgeAIServerRuntimeConfig,
+  request: EdgeAIClassifyRequest,
+): Promise<EdgeAIClassifyResponse> {
+  if (config.provider === 'mock') {
+    return {
+      predictions: [
+        { label: 'POSITIVE', score: 0.92 },
+        { label: 'NEGATIVE', score: 0.08 },
+      ],
+      model: request.model || config.model.id,
+      runtime: 'mock',
+      provider: 'mock',
+    }
+  }
+
+  const model = request.model?.trim() || TASK_DEFAULT_MODELS['text-classification']
+  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+    config,
+    model,
+    'text-classification',
+  )
+
+  const result = await pipeline(request.text, {}) as Array<{ label: string, score: number }>
+
+  return {
+    predictions: result.map(({ label, score }) => ({ label, score })),
+    model: resolvedModel.id,
+    runtime: 'transformers-wasm',
+    provider: 'transformers.js-wasm',
+  }
+}
+
+export async function embedEdgeAIText(
+  config: EdgeAIServerRuntimeConfig,
+  request: EdgeAIEmbedRequest,
+): Promise<EdgeAIEmbedResponse> {
+  if (config.provider === 'mock') {
+    const count = Array.isArray(request.texts) ? request.texts.length : 1
+    const dim = 384
+    return {
+      embeddings: Array.from({ length: count }, () => Array.from({ length: dim }, (_, i) => Math.sin(i * 0.1) * 0.1)),
+      shape: [count, dim],
+      model: request.model || config.model.id,
+      runtime: 'mock',
+      provider: 'mock',
+    }
+  }
+
+  const model = request.model?.trim() || TASK_DEFAULT_MODELS['feature-extraction']
+  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+    config,
+    model,
+    'feature-extraction',
+  )
+
+  const texts = Array.isArray(request.texts) ? request.texts : [request.texts]
+  const embedPipeline = pipeline as (input: string | string[], options?: Record<string, unknown>) => Promise<unknown>
+  const result = await embedPipeline(texts, { pooling: request.pooling || 'mean' })
+
+  // Transformers.js returns a Tensor or number[][] for feature-extraction
+  let embeddings: number[][]
+  if (result && typeof result === 'object' && 'tolist' in (result as Record<string, unknown>)) {
+    const tensorResult = result as { tolist(): unknown, dims: number[] }
+    const list = tensorResult.tolist() as unknown[]
+    embeddings = Array.isArray(list[0]) ? list as number[][] : [list as number[]]
+  }
+  else if (Array.isArray(result)) {
+    embeddings = result as number[][]
+  }
+  else {
+    embeddings = [[0]]
+  }
+
+  return {
+    embeddings,
+    shape: [embeddings.length, embeddings[0]?.length ?? 0],
+    model: resolvedModel.id,
+    runtime: 'transformers-wasm',
+    provider: 'transformers.js-wasm',
+  }
+}
+
+export async function summarizeEdgeAIText(
+  config: EdgeAIServerRuntimeConfig,
+  request: EdgeAISummarizeRequest,
+): Promise<EdgeAISummarizeResponse> {
+  if (config.provider === 'mock') {
+    const summary = 'This is a mock summary of the provided text for testing purposes.'
+    return {
+      summary,
+      model: request.model || config.model.id,
+      runtime: 'mock',
+      provider: 'mock',
+      generation: resolveGenerationOptions(config.model.generation, request.generation),
+      metrics: {
+        latencyMs: 0,
+        promptLength: request.text.length,
+        completionLength: summary.length,
+      },
+    }
+  }
+
+  const model = request.model?.trim() || TASK_DEFAULT_MODELS['summarization']
+  const generation = resolveGenerationOptions(config.model.generation, request.generation)
+  const start = performance.now()
+  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+    config,
+    model,
+    'summarization',
+  )
+
+  const result = await pipeline(request.text, {
+    max_new_tokens: generation.maxNewTokens,
+    temperature: generation.temperature,
+    top_p: generation.topP,
+    do_sample: generation.doSample,
+    repetition_penalty: generation.repetitionPenalty,
+  }) as Array<{ summary_text: string }>
+
+  const summary = result[0]?.summary_text ?? JSON.stringify(result)
+
+  return {
+    summary,
+    model: resolvedModel.id,
+    runtime: 'transformers-wasm',
+    provider: 'transformers.js-wasm',
+    generation,
+    metrics: {
+      latencyMs: Number((performance.now() - start).toFixed(2)),
+      promptLength: request.text.length,
+      completionLength: summary.length,
+    },
+  }
+}
+
+export async function translateEdgeAIText(
+  config: EdgeAIServerRuntimeConfig,
+  request: EdgeAITranslateRequest,
+): Promise<EdgeAITranslateResponse> {
+  if (config.provider === 'mock') {
+    const translation = `[Mock translation] ${request.text}`
+    return {
+      translation,
+      model: request.model || config.model.id,
+      runtime: 'mock',
+      provider: 'mock',
+      metrics: {
+        latencyMs: 0,
+        promptLength: request.text.length,
+        completionLength: translation.length,
+      },
+    }
+  }
+
+  const model = request.model?.trim() || TASK_DEFAULT_MODELS['translation']
+  const start = performance.now()
+  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+    config,
+    model,
+    'translation',
+  )
+
+  const result = await pipeline(request.text, {}) as Array<{ translation_text: string }>
+
+  const translation = result[0]?.translation_text ?? JSON.stringify(result)
+
+  return {
+    translation,
+    model: resolvedModel.id,
+    runtime: 'transformers-wasm',
+    provider: 'transformers.js-wasm',
+    metrics: {
+      latencyMs: Number((performance.now() - start).toFixed(2)),
+      promptLength: request.text.length,
+      completionLength: translation.length,
+    },
+  }
+}
+
+export async function fillMaskEdgeAIText(
+  config: EdgeAIServerRuntimeConfig,
+  request: EdgeAIFillMaskRequest,
+): Promise<EdgeAIFillMaskResponse> {
+  if (config.provider === 'mock') {
+    return {
+      results: [
+        { sequence: 'The mock was shining.', score: 0.85, token: 1234, tokenStr: 'mock' },
+        { sequence: 'The sun was shining.', score: 0.72, token: 5678, tokenStr: 'sun' },
+        { sequence: 'The star was shining.', score: 0.55, token: 9012, tokenStr: 'star' },
+      ],
+      model: request.model || config.model.id,
+      runtime: 'mock',
+      provider: 'mock',
+    }
+  }
+
+  const model = request.model?.trim() || TASK_DEFAULT_MODELS['fill-mask']
+  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+    config,
+    model,
+    'fill-mask',
+  )
+
+  const result = await pipeline(request.text, {}) as Array<{
+    sequence: string
+    score: number
+    token: number
+    token_str: string
+  }>
+
+  const topK = request.topK ?? 5
+  const results = result.slice(0, topK).map(({ sequence, score, token, token_str }) => ({
+    sequence,
+    score,
+    token,
+    tokenStr: token_str,
+  }))
+
+  return {
+    results,
+    model: resolvedModel.id,
+    runtime: 'transformers-wasm',
+    provider: 'transformers.js-wasm',
+  }
 }
 
 async function runRemoteInference(
@@ -835,11 +1085,19 @@ async function* runRemoteInferenceStream(
 }
 
 function shouldUseRemoteFallback(config: EdgeAIServerRuntimeConfig) {
-  return config.provider === 'local' && config.remote.enabled && config.remote.fallback
+  if (config.provider !== 'local' || !config.remote.enabled || !config.remote.fallback) {
+    return false
+  }
+
+  return Boolean(resolveRemoteApiKey(config.remote) || config.remote.headers?.Authorization)
 }
 
 function shouldForceRemote(config: EdgeAIServerRuntimeConfig, input: EdgeAIGenerateRequest) {
-  return Boolean(input.remote && config.remote.enabled)
+  if (!input.remote || !config.remote.enabled) {
+    return false
+  }
+
+  return Boolean(resolveRemoteApiKey(config.remote) || config.remote.headers?.Authorization)
 }
 
 async function withRemoteFallback<T>(
@@ -880,7 +1138,7 @@ export async function getEdgeAIHealth(config: EdgeAIServerRuntimeConfig): Promis
     runtime: config.runtime,
     provider: config.provider,
     model,
-    defaults: config.model.generation,
+    defaults: resolveGenerationOptions(config.model.generation),
     engine: currentEngineState(config),
     presets: config.presets,
     remoteFallback: config.remote.fallback,

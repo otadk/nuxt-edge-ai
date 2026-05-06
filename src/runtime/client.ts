@@ -2,12 +2,22 @@ import type {
   EdgeAIChatCompletionRequest,
   EdgeAIChatCompletionResponse,
   EdgeAIChatCompletionStreamResponse,
+  EdgeAIClassifyRequest,
+  EdgeAIClassifyResponse,
+  EdgeAIEmbedRequest,
+  EdgeAIEmbedResponse,
+  EdgeAIFillMaskRequest,
+  EdgeAIFillMaskResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIHealthResponse,
   EdgeAIPullResponse,
   EdgeAIStreamCallbacks,
   EdgeAIStreamState,
+  EdgeAISummarizeRequest,
+  EdgeAISummarizeResponse,
+  EdgeAITranslateRequest,
+  EdgeAITranslateResponse,
   StreamPart,
 } from './types'
 
@@ -183,6 +193,41 @@ export class EdgeAI {
 
   generate(payload: EdgeAIGenerateRequest) {
     return this.request<EdgeAIGenerateResponse>('/generate', {
+      method: 'POST',
+      body: payload,
+    })
+  }
+
+  classify(payload: EdgeAIClassifyRequest) {
+    return this.request<EdgeAIClassifyResponse>('/classify', {
+      method: 'POST',
+      body: payload,
+    })
+  }
+
+  embed(payload: EdgeAIEmbedRequest) {
+    return this.request<EdgeAIEmbedResponse>('/embed', {
+      method: 'POST',
+      body: payload,
+    })
+  }
+
+  summarize(payload: EdgeAISummarizeRequest) {
+    return this.request<EdgeAISummarizeResponse>('/summarize', {
+      method: 'POST',
+      body: payload,
+    })
+  }
+
+  translate(payload: EdgeAITranslateRequest) {
+    return this.request<EdgeAITranslateResponse>('/translate', {
+      method: 'POST',
+      body: payload,
+    })
+  }
+
+  fillMask(payload: EdgeAIFillMaskRequest) {
+    return this.request<EdgeAIFillMaskResponse>('/fill-mask', {
       method: 'POST',
       body: payload,
     })

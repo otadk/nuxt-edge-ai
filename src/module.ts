@@ -230,17 +230,57 @@ export default defineNuxtModule<ModuleOptions>({
       handler: resolver.resolve('./runtime/server/api/chat-completions.post'),
     })
 
+    addServerHandler({
+      route: `${routeBase}/classify`,
+      method: 'post',
+      handler: resolver.resolve('./runtime/server/api/classify.post'),
+    })
+
+    addServerHandler({
+      route: `${routeBase}/embed`,
+      method: 'post',
+      handler: resolver.resolve('./runtime/server/api/embed.post'),
+    })
+
+    addServerHandler({
+      route: `${routeBase}/summarize`,
+      method: 'post',
+      handler: resolver.resolve('./runtime/server/api/summarize.post'),
+    })
+
+    addServerHandler({
+      route: `${routeBase}/translate`,
+      method: 'post',
+      handler: resolver.resolve('./runtime/server/api/translate.post'),
+    })
+
+    addServerHandler({
+      route: `${routeBase}/fill-mask`,
+      method: 'post',
+      handler: resolver.resolve('./runtime/server/api/fill-mask.post'),
+    })
+
     addTypeTemplate({
       filename: 'types/nuxt-edge-ai.d.ts',
       getContents: () => `import type { NuxtApp } from '#app'
 import type {
   EdgeAIChatCompletionRequest,
   EdgeAIChatCompletionResponse,
+  EdgeAIClassifyRequest,
+  EdgeAIClassifyResponse,
   EdgeAIClientOptions,
+  EdgeAIEmbedRequest,
+  EdgeAIEmbedResponse,
+  EdgeAIFillMaskRequest,
+  EdgeAIFillMaskResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIHealthResponse,
-  EdgeAIPullResponse
+  EdgeAIPullResponse,
+  EdgeAISummarizeRequest,
+  EdgeAISummarizeResponse,
+  EdgeAITranslateRequest,
+  EdgeAITranslateResponse,
 } from 'nuxt-edge-ai'
 import type { EdgeAI } from 'nuxt-edge-ai'
 
@@ -259,6 +299,11 @@ declare module '#app' {
       generate: (payload: EdgeAIGenerateRequest) => Promise<EdgeAIGenerateResponse>
       chatCompletions: (payload: EdgeAIChatCompletionRequest) => Promise<EdgeAIChatCompletionResponse>
       health: () => Promise<EdgeAIHealthResponse>
+      classify: (payload: EdgeAIClassifyRequest) => Promise<EdgeAIClassifyResponse>
+      embed: (payload: EdgeAIEmbedRequest) => Promise<EdgeAIEmbedResponse>
+      summarize: (payload: EdgeAISummarizeRequest) => Promise<EdgeAISummarizeResponse>
+      translate: (payload: EdgeAITranslateRequest) => Promise<EdgeAITranslateResponse>
+      fillMask: (payload: EdgeAIFillMaskRequest) => Promise<EdgeAIFillMaskResponse>
     }
   }
 }

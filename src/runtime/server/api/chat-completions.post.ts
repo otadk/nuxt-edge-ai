@@ -29,6 +29,8 @@ export default defineEventHandler(async (event) => {
       ? createEdgeAIChatCompletionStream(config, body)
       : createEdgeAIChatCompletionOpenAIStream(config, body)
 
+    event.node.res.statusCode = 200
+
     for (const [key, value] of Object.entries(streamResponse.headers)) {
       event.node.res.setHeader(key, value)
     }
@@ -47,7 +49,8 @@ export default defineEventHandler(async (event) => {
       event.node.res.end()
     }
 
-    return
+    // Signal to h3 that the response has been fully handled
+    return null
   }
 
   return createEdgeAIChatCompletion(config, body)

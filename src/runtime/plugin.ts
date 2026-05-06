@@ -3,11 +3,21 @@ import { EdgeAI } from './client'
 import type {
   EdgeAIChatCompletionRequest,
   EdgeAIChatCompletionResponse,
+  EdgeAIClassifyRequest,
+  EdgeAIClassifyResponse,
+  EdgeAIEmbedRequest,
+  EdgeAIEmbedResponse,
+  EdgeAIFillMaskRequest,
+  EdgeAIFillMaskResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIHealthResponse,
   EdgeAIPublicRuntimeConfig,
   EdgeAIPullResponse,
+  EdgeAISummarizeRequest,
+  EdgeAISummarizeResponse,
+  EdgeAITranslateRequest,
+  EdgeAITranslateResponse,
 } from './types'
 
 export default defineNuxtPlugin(() => {
@@ -55,6 +65,36 @@ export default defineNuxtPlugin(() => {
         },
         health() {
           return $fetch<EdgeAIHealthResponse>(`${routeBase}/health`)
+        },
+        classify(payload: EdgeAIClassifyRequest) {
+          return $fetch<EdgeAIClassifyResponse>(`${routeBase}/classify`, {
+            method: 'POST',
+            body: payload,
+          })
+        },
+        embed(payload: EdgeAIEmbedRequest) {
+          return $fetch<EdgeAIEmbedResponse>(`${routeBase}/embed`, {
+            method: 'POST',
+            body: payload,
+          })
+        },
+        summarize(payload: EdgeAISummarizeRequest) {
+          return $fetch<EdgeAISummarizeResponse>(`${routeBase}/summarize`, {
+            method: 'POST',
+            body: payload,
+          })
+        },
+        translate(payload: EdgeAITranslateRequest) {
+          return $fetch<EdgeAITranslateResponse>(`${routeBase}/translate`, {
+            method: 'POST',
+            body: payload,
+          })
+        },
+        fillMask(payload: EdgeAIFillMaskRequest) {
+          return $fetch<EdgeAIFillMaskResponse>(`${routeBase}/fill-mask`, {
+            method: 'POST',
+            body: payload,
+          })
         },
       },
     },

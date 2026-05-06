@@ -1,6 +1,12 @@
 export type EdgeAIProvider = 'local' | 'remote' | 'mock'
 export type EdgeAIRuntime = 'transformers-wasm' | 'remote' | 'mock'
-export type EdgeAITask = 'text-generation'
+export type EdgeAITask =
+  | 'text-generation'
+  | 'text-classification'
+  | 'feature-extraction'
+  | 'summarization'
+  | 'translation'
+  | 'fill-mask'
 export type EdgeAIResponseProvider = 'transformers.js-wasm' | 'openai-compatible' | 'mock'
 
 export interface EdgeAIRemoteMessage {
@@ -19,6 +25,7 @@ export interface EdgeAIGenerateRequest {
   prompt?: string
   remote?: boolean
   model?: string
+  task?: EdgeAITask
   messages?: EdgeAIRemoteMessage[]
   reasoning?: EdgeAIRemoteReasoningOptions
   remoteBody?: Record<string, unknown>
@@ -59,7 +66,7 @@ export interface EdgeAIModelResolvedConfig {
   localPath?: string
   allowRemote: boolean
   dtype?: string
-  generation: EdgeAIGenerationOptions
+  generation?: EdgeAIGenerationOptions
 }
 
 export interface EdgeAIModelPresetDefinition {
@@ -110,6 +117,11 @@ export interface EdgeAIServerRuntimeConfig {
   model: EdgeAIModelResolvedConfig
   remote: EdgeAIRemoteConfig
   presets: EdgeAIModelPresetSummary[]
+  rag?: {
+    storePath?: string
+    chunkSize?: number
+    chunkOverlap?: number
+  }
 }
 
 export interface EdgeAIPublicRuntimeConfig {
@@ -182,6 +194,117 @@ export interface EdgeAIChatCompletionResponse {
   provider: EdgeAIResponseProvider
   runtime: EdgeAIRuntime
   fellBackToRemote?: boolean
+}
+
+// Task-specific request types
+export interface EdgeAIClassifyRequest {
+  text: string
+  model?: string
+  remote?: boolean
+}
+
+export interface EdgeAIEmbedRequest {
+  texts: string | string[]
+  pooling?: 'mean' | 'cls'
+  model?: string
+  remote?: boolean
+}
+
+export interface EdgeAISummarizeRequest {
+  text: string
+  model?: string
+  remote?: boolean
+  generation?: Partial<EdgeAIGenerationOptions>
+}
+
+export interface EdgeAITranslateRequest {
+  text: string
+  srcLang?: string
+  tgtLang?: string
+  model?: string
+  remote?: boolean
+}
+
+export interface EdgeAIFillMaskRequest {
+  text: string
+  model?: string
+  topK?: number
+  remote?: boolean
+}
+
+// Task-specific response types
+export interface EdgeAIClassifyResponse {
+  predictions: Array<{ label: string, score: number }>
+  model: string
+  runtime: EdgeAIRuntime
+  provider: EdgeAIResponseProvider
+}
+
+export interface EdgeAIEmbedResponse {
+  embeddings: number[][]
+  shape: [number, number]
+  model: string
+  runtime: EdgeAIRuntime
+  provider: EdgeAIResponseProvider
+}
+
+export interface EdgeAISummarizeResponse {
+  summary: string
+  model: string
+  runtime: EdgeAIRuntime
+  provider: EdgeAIResponseProvider
+  generation: EdgeAIGenerationOptions
+  metrics: EdgeAIMetrics
+}
+
+export interface EdgeAITranslateResponse {
+  translation: string
+  model: string
+  runtime: EdgeAIRuntime
+  provider: EdgeAIResponseProvider
+  metrics: EdgeAIMetrics
+}
+
+export interface EdgeAIFillMaskResponse {
+  results: Array<{
+    sequence: string
+    score: number
+    token: number
+    tokenStr: string
+  }>
+  model: string
+  runtime: EdgeAIRuntime
+  provider: EdgeAIResponseProvider
+}
+
+// RAG types
+export interface EdgeAIRagIngestRequest {
+  files?: Array<{ name: string, content: string, type?: string }>
+  url?: string
+  chunkSize?: number
+  chunkOverlap?: number
+}
+
+export interface EdgeAIRagIngestResponse {
+  ingested: number
+  chunks: number
+  sources: string[]
+  embedded: boolean
+}
+
+export interface EdgeAIRagQueryRequest {
+  question: string
+  topK?: number
+  model?: string
+  systemPrompt?: string
+}
+
+export interface EdgeAIRagQueryResponse extends EdgeAIGenerateResponse {
+  sources: Array<{
+    text: string
+    similarity: number
+    metadata: Record<string, unknown>
+  }>
 }
 
 // Streaming types
