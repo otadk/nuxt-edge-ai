@@ -1,6 +1,6 @@
 {
   "name": "nuxt-edge-ai",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Nuxt module for local-first AI apps powered by a bundled Transformers.js + ONNX Runtime WASM server runtime.",
   "license": "MIT",
   "type": "module",
