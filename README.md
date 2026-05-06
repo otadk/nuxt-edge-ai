@@ -24,7 +24,7 @@ The model weights are not bundled. Users either point the module at a local mode
 
 ## Demo
 
-- Minimal local-only StackBlitz demo: https://stackblitz.com/edit/nuxt-starter-t2mavk3t?file=package.json
+- Minimal local-only StackBlitz demo: https://stackblitz.com/edit/nuxt-starter-61yksudz?file=package.json
 
 The StackBlitz example keeps the setup intentionally small and uses the OpenAI-style `chat.completions.create()` call shape against the local provider only.
 

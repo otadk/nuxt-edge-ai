@@ -27,7 +27,7 @@
           </div>
           <div class="brand-text">
             <h1>nuxt-edge-ai</h1>
-            <span class="version">v0.1.4</span>
+            <span class="version">v0.2.0</span>
           </div>
         </div>
 
@@ -36,12 +36,12 @@
             to="/"
             class="nav-link"
             active-class="active"
-          >Chat</NuxtLink>
+          >Demos</NuxtLink>
           <NuxtLink
-            to="/demos"
+            to="/chat"
             class="nav-link"
             active-class="active"
-          >Demos</NuxtLink>
+          >Chat</NuxtLink>
         </nav>
       </header>
 
