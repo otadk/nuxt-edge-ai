@@ -16,7 +16,6 @@ import type {
   EdgeAIGenerateResponse,
   EdgeAIGenerationOptions,
   EdgeAIHealthResponse,
-  EdgeAIMetrics,
   EdgeAIModelInfo,
   EdgeAIRemoteMessage,
   EdgeAIRemoteConfig,
@@ -712,7 +711,7 @@ export async function classifyEdgeAIText(
   }
 
   const model = request.model?.trim() || TASK_DEFAULT_MODELS['text-classification']
-  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+  const { pipeline, loadedNow: _, model: resolvedModel } = await ensureTransformersPipeline(
     config,
     model,
     'text-classification',
@@ -745,7 +744,7 @@ export async function embedEdgeAIText(
   }
 
   const model = request.model?.trim() || TASK_DEFAULT_MODELS['feature-extraction']
-  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+  const { pipeline, loadedNow: _, model: resolvedModel } = await ensureTransformersPipeline(
     config,
     model,
     'feature-extraction',
@@ -801,7 +800,7 @@ export async function summarizeEdgeAIText(
   const model = request.model?.trim() || TASK_DEFAULT_MODELS['summarization']
   const generation = resolveGenerationOptions(config.model.generation, request.generation)
   const start = performance.now()
-  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+  const { pipeline, loadedNow: _, model: resolvedModel } = await ensureTransformersPipeline(
     config,
     model,
     'summarization',
@@ -852,7 +851,7 @@ export async function translateEdgeAIText(
 
   const model = request.model?.trim() || TASK_DEFAULT_MODELS['translation']
   const start = performance.now()
-  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+  const { pipeline, loadedNow: _, model: resolvedModel } = await ensureTransformersPipeline(
     config,
     model,
     'translation',
@@ -893,7 +892,7 @@ export async function fillMaskEdgeAIText(
   }
 
   const model = request.model?.trim() || TASK_DEFAULT_MODELS['fill-mask']
-  const { pipeline, loadedNow, model: resolvedModel } = await ensureTransformersPipeline(
+  const { pipeline, loadedNow: _, model: resolvedModel } = await ensureTransformersPipeline(
     config,
     model,
     'fill-mask',

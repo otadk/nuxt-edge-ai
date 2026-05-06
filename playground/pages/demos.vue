@@ -1,11 +1,21 @@
 <template>
   <div class="demos-page">
-    <h2 class="page-title">Task Demos</h2>
-    <p class="page-desc">Try each AI task powered by local WASM models. First request loads the model (cold start).</p>
+    <h2 class="page-title">
+      Task Demos
+    </h2>
+    <p class="page-desc">
+      Try each AI task powered by local WASM models. First request loads the model (cold start).
+    </p>
 
     <!-- Tabs -->
     <div class="tabs">
-      <button v-for="tab in tabs" :key="tab.id" class="tab-btn" :class="{ active: currentTab === tab.id }" @click="currentTab = tab.id">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        class="tab-btn"
+        :class="{ active: currentTab === tab.id }"
+        @click="currentTab = tab.id"
+      >
         <span class="tab-icon">{{ tab.icon }}</span>
         <span>{{ tab.label }}</span>
       </button>
@@ -17,20 +27,62 @@
       <div v-if="currentTab === 'classify'">
         <div class="demo-card">
           <h3>Sentiment Analysis</h3>
-          <p class="card-desc">Classify text as positive or negative. Model: DistilBERT fine-tuned on SST-2.</p>
-          <textarea v-model="classifyInput" placeholder="Enter text to analyze sentiment..." rows="3" class="input" />
-          <button class="btn primary" :disabled="classifyLoading" @click="runClassify">
-            <svg v-if="classifyLoading" class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+          <p class="card-desc">
+            Classify text as positive or negative. Model: DistilBERT fine-tuned on SST-2.
+          </p>
+          <textarea
+            v-model="classifyInput"
+            placeholder="Enter text to analyze sentiment..."
+            rows="3"
+            class="input"
+          />
+          <button
+            class="btn primary"
+            :disabled="classifyLoading"
+            @click="runClassify"
+          >
+            <svg
+              v-if="classifyLoading"
+              class="spinner"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><circle
+              cx="12"
+              cy="12"
+              r="10"
+            /><path d="M12 6v6l4 2" /></svg>
             {{ classifyLoading ? 'Analyzing...' : 'Analyze Sentiment' }}
           </button>
-          <div v-if="classifyResult" class="result">
-            <div v-for="p in classifyResult.predictions" :key="p.label" class="result-row">
-              <span class="result-label" :class="{ positive: p.label === 'POSITIVE', negative: p.label === 'NEGATIVE' }">{{ p.label }}</span>
-              <div class="result-bar-bg"><div class="result-bar" :style="{ width: `${(p.score * 100).toFixed(0)}%` }" /></div>
+          <div
+            v-if="classifyResult"
+            class="result"
+          >
+            <div
+              v-for="p in classifyResult.predictions"
+              :key="p.label"
+              class="result-row"
+            >
+              <span
+                class="result-label"
+                :class="{ positive: p.label === 'POSITIVE', negative: p.label === 'NEGATIVE' }"
+              >{{ p.label }}</span>
+              <div class="result-bar-bg">
+                <div
+                  class="result-bar"
+                  :style="{ width: `${(p.score * 100).toFixed(0)}%` }"
+                />
+              </div>
               <span class="result-score">{{ (p.score * 100).toFixed(1) }}%</span>
             </div>
           </div>
-          <div v-if="classifyError" class="error">{{ classifyError }}</div>
+          <div
+            v-if="classifyError"
+            class="error"
+          >
+            {{ classifyError }}
+          </div>
         </div>
       </div>
 
@@ -38,13 +90,38 @@
       <div v-if="currentTab === 'embed'">
         <div class="demo-card">
           <h3>Text Embedding</h3>
-          <p class="card-desc">Generate 384-dimensional embeddings for semantic search. Model: all-MiniLM-L6-v2.</p>
-          <textarea v-model="embedInput" placeholder="Enter text to embed...&#10;Or enter multiple lines for batch embedding" rows="4" class="input" />
-          <button class="btn primary" :disabled="embedLoading" @click="runEmbed">
-            <svg v-if="embedLoading" class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+          <p class="card-desc">
+            Generate 384-dimensional embeddings for semantic search. Model: all-MiniLM-L6-v2.
+          </p>
+          <textarea
+            v-model="embedInput"
+            placeholder="Enter text to embed...&#10;Or enter multiple lines for batch embedding"
+            rows="4"
+            class="input"
+          />
+          <button
+            class="btn primary"
+            :disabled="embedLoading"
+            @click="runEmbed"
+          >
+            <svg
+              v-if="embedLoading"
+              class="spinner"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><circle
+              cx="12"
+              cy="12"
+              r="10"
+            /><path d="M12 6v6l4 2" /></svg>
             {{ embedLoading ? 'Computing...' : 'Generate Embedding' }}
           </button>
-          <div v-if="embedResult" class="result">
+          <div
+            v-if="embedResult"
+            class="result"
+          >
             <div class="result-meta">
               <span>Shape: [{{ embedResult.shape[0] }}, {{ embedResult.shape[1] }}]</span>
               <span>Model: {{ embedResult.model }}</span>
@@ -52,11 +129,19 @@
             <div class="embed-preview">
               <details>
                 <summary>Embedding vectors (first 8 dimensions)</summary>
-                <pre v-for="(emb, i) in embedResult.embeddings.slice(0, 3)" :key="i">[{{ emb.slice(0, 8).map(v => v.toFixed(4)).join(', ') }}, ...]</pre>
+                <pre
+                  v-for="(emb, i) in embedResult.embeddings.slice(0, 3)"
+                  :key="i"
+                >[{{ emb.slice(0, 8).map(v => v.toFixed(4)).join(', ') }}, ...]</pre>
               </details>
             </div>
           </div>
-          <div v-if="embedError" class="error">{{ embedError }}</div>
+          <div
+            v-if="embedError"
+            class="error"
+          >
+            {{ embedError }}
+          </div>
         </div>
       </div>
 
@@ -64,22 +149,56 @@
       <div v-if="currentTab === 'summarize'">
         <div class="demo-card">
           <h3>Summarization</h3>
-          <p class="card-desc">Summarize long text into a concise version. Model: DistilBART fine-tuned on CNN/DailyMail.</p>
-          <textarea v-model="summarizeInput" placeholder="Paste text to summarize... (works best with paragraph-length content)" rows="5" class="input" />
-          <button class="btn primary" :disabled="summarizeLoading" @click="runSummarize">
-            <svg v-if="summarizeLoading" class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+          <p class="card-desc">
+            Summarize long text into a concise version. Model: DistilBART fine-tuned on CNN/DailyMail.
+          </p>
+          <textarea
+            v-model="summarizeInput"
+            placeholder="Paste text to summarize... (works best with paragraph-length content)"
+            rows="5"
+            class="input"
+          />
+          <button
+            class="btn primary"
+            :disabled="summarizeLoading"
+            @click="runSummarize"
+          >
+            <svg
+              v-if="summarizeLoading"
+              class="spinner"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><circle
+              cx="12"
+              cy="12"
+              r="10"
+            /><path d="M12 6v6l4 2" /></svg>
             {{ summarizeLoading ? 'Summarizing...' : 'Summarize' }}
           </button>
-          <div v-if="summarizeResult" class="result">
-            <div class="result-label-text">Summary:</div>
-            <div class="result-text">{{ summarizeResult.summary }}</div>
+          <div
+            v-if="summarizeResult"
+            class="result"
+          >
+            <div class="result-label-text">
+              Summary:
+            </div>
+            <div class="result-text">
+              {{ summarizeResult.summary }}
+            </div>
             <div class="result-meta">
               <span>Latency: {{ summarizeResult.metrics.latencyMs }}ms</span>
               <span>Input: {{ summarizeResult.metrics.promptLength }} chars</span>
               <span>Output: {{ summarizeResult.metrics.completionLength }} chars</span>
             </div>
           </div>
-          <div v-if="summarizeError" class="error">{{ summarizeError }}</div>
+          <div
+            v-if="summarizeError"
+            class="error"
+          >
+            {{ summarizeError }}
+          </div>
         </div>
       </div>
 
@@ -87,26 +206,67 @@
       <div v-if="currentTab === 'translate'">
         <div class="demo-card">
           <h3>Translation</h3>
-          <p class="card-desc">Translate between English and Chinese. Model: Helsinki-NLP Opus-MT.</p>
+          <p class="card-desc">
+            Translate between English and Chinese. Model: Helsinki-NLP Opus-MT.
+          </p>
           <div class="translate-controls">
-            <select v-model="translateDirection" class="select">
-              <option value="en-zh">English → Chinese</option>
-              <option value="zh-en">Chinese → English</option>
+            <select
+              v-model="translateDirection"
+              class="select"
+            >
+              <option value="en-zh">
+                English → Chinese
+              </option>
+              <option value="zh-en">
+                Chinese → English
+              </option>
             </select>
           </div>
-          <textarea v-model="translateInput" :placeholder="translateDirection === 'en-zh' ? 'Enter English text...' : '输入中文文本...'" rows="3" class="input" />
-          <button class="btn primary" :disabled="translateLoading" @click="runTranslate">
-            <svg v-if="translateLoading" class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+          <textarea
+            v-model="translateInput"
+            :placeholder="translateDirection === 'en-zh' ? 'Enter English text...' : '输入中文文本...'"
+            rows="3"
+            class="input"
+          />
+          <button
+            class="btn primary"
+            :disabled="translateLoading"
+            @click="runTranslate"
+          >
+            <svg
+              v-if="translateLoading"
+              class="spinner"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><circle
+              cx="12"
+              cy="12"
+              r="10"
+            /><path d="M12 6v6l4 2" /></svg>
             {{ translateLoading ? 'Translating...' : 'Translate' }}
           </button>
-          <div v-if="translateResult" class="result">
-            <div class="result-label-text">Translation:</div>
-            <div class="result-text">{{ translateResult.translation }}</div>
+          <div
+            v-if="translateResult"
+            class="result"
+          >
+            <div class="result-label-text">
+              Translation:
+            </div>
+            <div class="result-text">
+              {{ translateResult.translation }}
+            </div>
             <div class="result-meta">
               <span>Latency: {{ translateResult.metrics.latencyMs }}ms</span>
             </div>
           </div>
-          <div v-if="translateError" class="error">{{ translateError }}</div>
+          <div
+            v-if="translateError"
+            class="error"
+          >
+            {{ translateError }}
+          </div>
         </div>
       </div>
 
@@ -114,21 +274,62 @@
       <div v-if="currentTab === 'fill-mask'">
         <div class="demo-card">
           <h3>Fill Mask</h3>
-          <p class="card-desc">Predict missing tokens marked with <code>[MASK]</code>. Model: BERT base uncased.</p>
-          <textarea v-model="fillMaskInput" placeholder="The [MASK] was shining brightly in the sky." rows="2" class="input" />
-          <button class="btn primary" :disabled="fillMaskLoading" @click="runFillMask">
-            <svg v-if="fillMaskLoading" class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+          <p class="card-desc">
+            Predict missing tokens marked with <code>[MASK]</code>. Model: BERT base uncased.
+          </p>
+          <textarea
+            v-model="fillMaskInput"
+            placeholder="The [MASK] was shining brightly in the sky."
+            rows="2"
+            class="input"
+          />
+          <button
+            class="btn primary"
+            :disabled="fillMaskLoading"
+            @click="runFillMask"
+          >
+            <svg
+              v-if="fillMaskLoading"
+              class="spinner"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><circle
+              cx="12"
+              cy="12"
+              r="10"
+            /><path d="M12 6v6l4 2" /></svg>
             {{ fillMaskLoading ? 'Predicting...' : 'Predict' }}
           </button>
-          <div v-if="fillMaskResult" class="result">
-            <div class="result-label-text">Top predictions:</div>
-            <div v-for="r in fillMaskResult.results" :key="r.tokenStr" class="result-row">
+          <div
+            v-if="fillMaskResult"
+            class="result"
+          >
+            <div class="result-label-text">
+              Top predictions:
+            </div>
+            <div
+              v-for="r in fillMaskResult.results"
+              :key="r.tokenStr"
+              class="result-row"
+            >
               <span class="result-value">{{ r.tokenStr }}</span>
-              <div class="result-bar-bg"><div class="result-bar" :style="{ width: `${(r.score * 100).toFixed(0)}%` }" /></div>
+              <div class="result-bar-bg">
+                <div
+                  class="result-bar"
+                  :style="{ width: `${(r.score * 100).toFixed(0)}%` }"
+                />
+              </div>
               <span class="result-score">{{ (r.score * 100).toFixed(1) }}%</span>
             </div>
           </div>
-          <div v-if="fillMaskError" class="error">{{ fillMaskError }}</div>
+          <div
+            v-if="fillMaskError"
+            class="error"
+          >
+            {{ fillMaskError }}
+          </div>
         </div>
       </div>
     </div>
@@ -154,12 +355,16 @@ const classifyResult = ref<{ predictions: Array<{ label: string, score: number }
 const classifyError = ref('')
 
 async function runClassify() {
-  classifyLoading.value = true; classifyError.value = ''; classifyResult.value = null
+  classifyLoading.value = true
+  classifyError.value = ''
+  classifyResult.value = null
   try {
     classifyResult.value = await edgeAI.classify({ text: classifyInput.value })
-  } catch (err) {
+  }
+  catch (err) {
     classifyError.value = err instanceof Error ? err.message : String(err)
-  } finally {
+  }
+  finally {
     classifyLoading.value = false
   }
 }
@@ -171,13 +376,17 @@ const embedResult = ref<{ embeddings: number[][], shape: [number, number], model
 const embedError = ref('')
 
 async function runEmbed() {
-  embedLoading.value = true; embedError.value = ''; embedResult.value = null
+  embedLoading.value = true
+  embedError.value = ''
+  embedResult.value = null
   try {
     const texts = embedInput.value.split('\n').filter(t => t.trim())
     embedResult.value = await edgeAI.embed({ texts: texts.length > 1 ? texts : (texts[0] || embedInput.value) })
-  } catch (err) {
+  }
+  catch (err) {
     embedError.value = err instanceof Error ? err.message : String(err)
-  } finally {
+  }
+  finally {
     embedLoading.value = false
   }
 }
@@ -189,12 +398,16 @@ const summarizeResult = ref<{ summary: string, metrics: { latencyMs: number, pro
 const summarizeError = ref('')
 
 async function runSummarize() {
-  summarizeLoading.value = true; summarizeError.value = ''; summarizeResult.value = null
+  summarizeLoading.value = true
+  summarizeError.value = ''
+  summarizeResult.value = null
   try {
     summarizeResult.value = await edgeAI.summarize({ text: summarizeInput.value })
-  } catch (err) {
+  }
+  catch (err) {
     summarizeError.value = err instanceof Error ? err.message : String(err)
-  } finally {
+  }
+  finally {
     summarizeLoading.value = false
   }
 }
@@ -207,13 +420,17 @@ const translateResult = ref<{ translation: string, metrics: { latencyMs: number 
 const translateError = ref('')
 
 async function runTranslate() {
-  translateLoading.value = true; translateError.value = ''; translateResult.value = null
+  translateLoading.value = true
+  translateError.value = ''
+  translateResult.value = null
   try {
     const model = translateDirection.value === 'en-zh' ? 'Xenova/opus-mt-en-zh' : 'Xenova/opus-mt-zh-en'
     translateResult.value = await edgeAI.translate({ text: translateInput.value, model })
-  } catch (err) {
+  }
+  catch (err) {
     translateError.value = err instanceof Error ? err.message : String(err)
-  } finally {
+  }
+  finally {
     translateLoading.value = false
   }
 }
@@ -225,12 +442,16 @@ const fillMaskResult = ref<{ results: Array<{ tokenStr: string, score: number }>
 const fillMaskError = ref('')
 
 async function runFillMask() {
-  fillMaskLoading.value = true; fillMaskError.value = ''; fillMaskResult.value = null
+  fillMaskLoading.value = true
+  fillMaskError.value = ''
+  fillMaskResult.value = null
   try {
     fillMaskResult.value = await edgeAI.fillMask({ text: fillMaskInput.value })
-  } catch (err) {
+  }
+  catch (err) {
     fillMaskError.value = err instanceof Error ? err.message : String(err)
-  } finally {
+  }
+  finally {
     fillMaskLoading.value = false
   }
 }

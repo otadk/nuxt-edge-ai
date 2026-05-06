@@ -170,7 +170,10 @@ describe('ssr', async () => {
             if (data === '[DONE]') continue
 
             let part: { type?: string, delta?: string }
-            try { part = JSON.parse(data) } catch { continue }
+            try {
+              part = JSON.parse(data)
+            }
+            catch { continue }
 
             if (part.type === 'start') sawStart = true
             if (part.type === 'text-delta') collectedDeltas.push(part.delta || '')
@@ -179,7 +182,8 @@ describe('ssr', async () => {
         }
         if (done) break
       }
-    } finally {
+    }
+    finally {
       reader.releaseLock()
     }
 

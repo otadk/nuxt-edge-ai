@@ -1,12 +1,12 @@
 export type EdgeAIProvider = 'local' | 'remote' | 'mock'
 export type EdgeAIRuntime = 'transformers-wasm' | 'remote' | 'mock'
-export type EdgeAITask =
-  | 'text-generation'
-  | 'text-classification'
-  | 'feature-extraction'
-  | 'summarization'
-  | 'translation'
-  | 'fill-mask'
+export type EdgeAITask
+  = | 'text-generation'
+    | 'text-classification'
+    | 'feature-extraction'
+    | 'summarization'
+    | 'translation'
+    | 'fill-mask'
 export type EdgeAIResponseProvider = 'transformers.js-wasm' | 'openai-compatible' | 'mock'
 
 export interface EdgeAIRemoteMessage {

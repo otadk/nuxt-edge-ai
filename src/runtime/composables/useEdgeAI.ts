@@ -5,11 +5,8 @@ import type {
   EdgeAIChatCompletionRequest,
   EdgeAIChatCompletionResponse,
   EdgeAIClassifyRequest,
-  EdgeAIClassifyResponse,
   EdgeAIEmbedRequest,
-  EdgeAIEmbedResponse,
   EdgeAIFillMaskRequest,
-  EdgeAIFillMaskResponse,
   EdgeAIGenerateRequest,
   EdgeAIGenerateResponse,
   EdgeAIHealthResponse,
@@ -17,9 +14,7 @@ import type {
   EdgeAIPullResponse,
   EdgeAIStreamCallbacks,
   EdgeAISummarizeRequest,
-  EdgeAISummarizeResponse,
   EdgeAITranslateRequest,
-  EdgeAITranslateResponse,
 } from '../types'
 
 export interface UseEdgeAIOptions {
@@ -287,7 +282,6 @@ export function useEdgeAI(options: UseEdgeAIOptions = {}) {
         ? `${routeBase}/chat/completions`
         : new URL(`${routeBase}/chat/completions`, window.location.origin).toString()
 
-
       const response = await fetch(fetchUrl, {
         method: 'POST',
         headers: {
@@ -298,7 +292,6 @@ export function useEdgeAI(options: UseEdgeAIOptions = {}) {
         body: JSON.stringify({ ...payload, stream: true }),
         signal: abortController.value.signal,
       })
-
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -381,7 +374,6 @@ export function useEdgeAI(options: UseEdgeAIOptions = {}) {
       finally {
         reader.releaseLock()
       }
-
 
       isStreaming.value = false
       isLoading.value = false

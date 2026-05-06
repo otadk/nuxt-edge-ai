@@ -13,7 +13,7 @@ const defaultGeneration: EdgeAIGenerationOptions = {
 }
 
 export const builtinModelPresets: Record<string, EdgeAIModelPresetDefinition> = {
-  distilgpt2: {
+  'distilgpt2': {
     label: 'DistilGPT2',
     description: 'Small baseline text-generation model for quick smoke tests.',
     model: {

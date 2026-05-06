@@ -8,9 +8,21 @@
       <header class="header">
         <div class="brand">
           <div class="logo">
-            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M16 2L4 9V23L16 30L28 23V9L16 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-              <path d="M16 16L22 12V20L16 24L10 20V12L16 16Z" fill="currentColor" />
+            <svg
+              viewBox="0 0 32 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M16 2L4 9V23L16 30L28 23V9L16 2Z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M16 16L22 12V20L16 24L10 20V12L16 16Z"
+                fill="currentColor"
+              />
             </svg>
           </div>
           <div class="brand-text">
@@ -20,8 +32,16 @@
         </div>
 
         <nav class="nav-links">
-          <NuxtLink to="/" class="nav-link" active-class="active">Chat</NuxtLink>
-          <NuxtLink to="/demos" class="nav-link" active-class="active">Demos</NuxtLink>
+          <NuxtLink
+            to="/"
+            class="nav-link"
+            active-class="active"
+          >Chat</NuxtLink>
+          <NuxtLink
+            to="/demos"
+            class="nav-link"
+            active-class="active"
+          >Demos</NuxtLink>
         </nav>
       </header>
 

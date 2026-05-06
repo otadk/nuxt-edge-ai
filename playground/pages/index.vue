@@ -2,7 +2,10 @@
   <div>
     <!-- Status Bar -->
     <div class="status-bar">
-      <div class="status-badge" :class="{ ready: health?.engine.ready }">
+      <div
+        class="status-badge"
+        :class="{ ready: health?.engine.ready }"
+      >
         <span class="status-dot" />
         <span>{{ health?.engine.ready ? 'Ready' : 'Cold Start' }}</span>
       </div>
@@ -14,46 +17,122 @@
 
     <!-- Chat Area -->
     <main class="chat-container">
-      <div v-if="!hasMessages" class="welcome">
+      <div
+        v-if="!hasMessages"
+        class="welcome"
+      >
         <div class="welcome-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
           </svg>
         </div>
         <h2>Local-first AI Chat</h2>
         <p>Powered by Transformers.js + ONNX Runtime WASM</p>
         <div class="quick-starts">
-          <button v-for="prompt in quickPrompts" :key="prompt" class="quick-prompt" @click="useQuickPrompt(prompt)">
+          <button
+            v-for="prompt in quickPrompts"
+            :key="prompt"
+            class="quick-prompt"
+            @click="useQuickPrompt(prompt)"
+          >
             {{ prompt }}
           </button>
         </div>
       </div>
 
-      <div v-else class="messages">
-        <div v-for="message in messages" :key="message.id" class="message" :class="[message.role, { streaming: message.isStreaming }]">
+      <div
+        v-else
+        class="messages"
+      >
+        <div
+          v-for="message in messages"
+          :key="message.id"
+          class="message"
+          :class="[message.role, { streaming: message.isStreaming }]"
+        >
           <div class="message-avatar">
-            <div class="avatar" :class="message.role">
-              <svg v-if="message.role === 'assistant'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div
+              class="avatar"
+              :class="message.role"
+            >
+              <svg
+                v-if="message.role === 'assistant'"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
-              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+              <svg
+                v-else
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle
+                  cx="12"
+                  cy="7"
+                  r="4"
+                />
               </svg>
             </div>
           </div>
           <div class="message-content">
             <div class="message-header">
               <span class="message-author">{{ message.role === 'user' ? 'You' : 'AI' }}</span>
-              <span v-if="message.model" class="message-model">{{ message.model }}</span>
-              <span v-if="message.fellBackToRemote" class="badge fallback">fallback</span>
-              <span v-if="message.isStreaming" class="badge streaming">streaming</span>
+              <span
+                v-if="message.model"
+                class="message-model"
+              >{{ message.model }}</span>
+              <span
+                v-if="message.fellBackToRemote"
+                class="badge fallback"
+              >fallback</span>
+              <span
+                v-if="message.isStreaming"
+                class="badge streaming"
+              >streaming</span>
             </div>
             <div class="message-body">
-              <p class="message-text">{{ message.content }}</p>
-              <span v-if="message.isStreaming" class="cursor" />
+              <p class="message-text">
+                {{ message.content }}
+              </p>
+              <span
+                v-if="message.isStreaming"
+                class="cursor"
+              />
             </div>
-            <div v-if="message.error" class="message-error">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            <div
+              v-if="message.error"
+              class="message-error"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              ><circle
+                cx="12"
+                cy="12"
+                r="10"
+              /><line
+                x1="12"
+                y1="8"
+                x2="12"
+                y2="12"
+              /><line
+                x1="12"
+                y1="16"
+                x2="12.01"
+                y2="16"
+              /></svg>
               {{ message.error }}
             </div>
           </div>
@@ -63,11 +142,36 @@
 
     <!-- Input -->
     <div class="input-area">
-      <div v-if="errorMessage" class="error-banner">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+      <div
+        v-if="errorMessage"
+        class="error-banner"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        ><circle
+          cx="12"
+          cy="12"
+          r="10"
+        /><line
+          x1="12"
+          y1="8"
+          x2="12"
+          y2="12"
+        /><line
+          x1="12"
+          y1="16"
+          x2="12.01"
+          y2="16"
+        /></svg>
         {{ errorMessage }}
       </div>
-      <form class="input-form" @submit.prevent="sendMessage">
+      <form
+        class="input-form"
+        @submit.prevent="sendMessage"
+      >
         <div class="input-wrapper">
           <textarea
             ref="inputRef"
@@ -81,14 +185,49 @@
           <div class="input-actions">
             <div class="token-slider">
               <label>Max tokens: {{ maxTokens }}</label>
-              <input v-model.number="maxTokens" type="range" min="32" max="512" step="32">
+              <input
+                v-model.number="maxTokens"
+                type="range"
+                min="32"
+                max="512"
+                step="32"
+              >
             </div>
-            <button v-if="isStreaming" type="button" class="btn stop" @click="stopStreaming">
-              <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+            <button
+              v-if="isStreaming"
+              type="button"
+              class="btn stop"
+              @click="stopStreaming"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              ><rect
+                x="6"
+                y="6"
+                width="12"
+                height="12"
+                rx="2"
+              /></svg>
               Stop
             </button>
-            <button v-else type="submit" class="btn send" :disabled="!input.trim()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+            <button
+              v-else
+              type="submit"
+              class="btn send"
+              :disabled="!input.trim()"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              ><line
+                x1="22"
+                y1="2"
+                x2="11"
+                y2="13"
+              /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
             </button>
           </div>
         </div>
@@ -123,7 +262,10 @@ const isStreaming = computed(() => messages.value.some(m => m.isStreaming))
 
 const quickPrompts = ['Write a poem about AI', 'Explain quantum computing', 'What is local-first software?', 'How does WASM work?']
 
-function useQuickPrompt(prompt: string) { input.value = prompt; sendMessage() }
+function useQuickPrompt(prompt: string) {
+  input.value = prompt
+  sendMessage()
+}
 
 function autoResize() {
   const el = inputRef.value
@@ -132,7 +274,9 @@ function autoResize() {
   el.style.height = `${Math.min(el.scrollHeight, 200)}px`
 }
 
-function stopStreaming() { edgeAI.stop() }
+function stopStreaming() {
+  edgeAI.stop()
+}
 
 async function sendMessage() {
   const text = input.value.trim()
@@ -161,7 +305,8 @@ async function sendMessage() {
         errorMessage.value = assistantMsg.error
       }
       assistantMsg.isStreaming = false
-    } else {
+    }
+    else {
       const res = await edgeAI.client.chat.completions.create({ model: activeModel.value, messages: history, max_tokens: maxTokens.value })
       assistantMsg.content = String(res.choices[0]?.message?.content ?? '')
       if (!assistantMsg.content) {
@@ -170,7 +315,8 @@ async function sendMessage() {
       assistantMsg.fellBackToRemote = res.fellBackToRemote
       assistantMsg.isStreaming = false
     }
-  } catch (err) {
+  }
+  catch (err) {
     if ((err as Error).name !== 'AbortError') {
       assistantMsg.error = err instanceof Error ? err.message : String(err)
       errorMessage.value = assistantMsg.error
