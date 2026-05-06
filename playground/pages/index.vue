@@ -289,7 +289,7 @@ async function sendMessage() {
   const assistantId = crypto.randomUUID()
   // Push first, then retrieve the reactive proxy — raw object refs are NOT tracked by Vue
   messages.value.push({ id: assistantId, role: 'assistant', content: '', model: activeModel.value, isStreaming: streamingEnabled.value })
-  const assistantMsg = messages.value[messages.value.length - 1]
+  const assistantMsg = messages.value[messages.value.length - 1]!
   errorMessage.value = ''
 
   try {
